@@ -257,6 +257,41 @@ public struct TestJuiceClient: Sendable {
         return try JSONDecoder().decode(TestDefinitionResponse.self, from: data)
     }
 
+    func makeLiveAppRequest(codeword: String) throws -> URLRequest {
+        guard var components = URLComponents(url: configuration.baseURL, resolvingAgainstBaseURL: false) else {
+            throw TestJuiceError.invalidURL
+        }
+        let basePath = components.path.hasSuffix("/") ? String(components.path.dropLast()) : components.path
+        components.path = basePath + "/api/testnowlive"
+        components.queryItems = [URLQueryItem(name: "codeword", value: codeword)]
+        guard let url = components.url else { throw TestJuiceError.invalidURL }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue(configuration.apiKey, forHTTPHeaderField: "X-Api-Key")
+        return request
+    }
+
+    /// Parses the `/api/testnowlive` body: a (possibly JSON-quoted) http(s) URL, or empty when not live.
+    static func parseLiveAppURL(_ data: Data) -> URL? {
+        var text = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        if let decoded = try? JSONDecoder().decode(String.self, from: data) {
+            text = decoded.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        guard !text.isEmpty, let url = URL(string: text),
+              let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https",
+              url.host?.isEmpty == false
+        else { return nil }
+        return url
+    }
+
+    /// The App Store URL if the feature's release is live in production; `nil` if not live or on any error.
+    public func fetchLiveAppURL(codeword: String) async -> URL? {
+        guard let request = try? makeLiveAppRequest(codeword: codeword),
+              let data = try? await send(request: request)
+        else { return nil }
+        return Self.parseLiveAppURL(data)
+    }
+
     struct TestResultResponse: Decodable, Sendable {
         let testRecordId: Int
         let status: String

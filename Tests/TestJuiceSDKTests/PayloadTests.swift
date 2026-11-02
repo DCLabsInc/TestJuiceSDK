@@ -296,3 +296,21 @@ import UIKit
         #expect(decoded.reward?.groupTitle == "Prize")
     }
 }
+
+@Suite struct LiveAppURLTests {
+    @Test func parsesValidURLAndRejectsEmptyOrInvalid() {
+        #expect(TestJuiceClient.parseLiveAppURL(Data("https://apps.apple.com/app/id1".utf8))
+            == URL(string: "https://apps.apple.com/app/id1"))
+        #expect(TestJuiceClient.parseLiveAppURL(Data("\"https://apps.apple.com/app/id1\"".utf8))
+            == URL(string: "https://apps.apple.com/app/id1"))
+        #expect(TestJuiceClient.parseLiveAppURL(Data()) == nil)
+        #expect(TestJuiceClient.parseLiveAppURL(Data("\"\"".utf8)) == nil)
+        #expect(TestJuiceClient.parseLiveAppURL(Data("not a url".utf8)) == nil)
+    }
+
+    @Test func requestTargetsTestNowLiveEndpoint() throws {
+        let client = TestJuiceClient(configuration: TestJuiceConfiguration(apiKey: "k"))
+        let url = try client.makeLiveAppRequest(codeword: "a b&c").url?.absoluteString
+        #expect(url == "https://portal.testjuice.com/api/testnowlive?codeword=a%20b%26c")
+    }
+}
