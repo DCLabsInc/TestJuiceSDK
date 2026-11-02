@@ -4,6 +4,32 @@ import Foundation
 
 #if canImport(UIKit) && canImport(ReplayKit)
 import ReplayKit
+import UIKit
+
+@Suite @MainActor struct PrivacyMaskOverlayTests {
+    @Test func maskFrameIsClippedToClippingAncestors() {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 300, height: 200))
+        let container = UIView(frame: CGRect(x: 20, y: 30, width: 100, height: 80))
+        container.clipsToBounds = true
+        let target = UIView(frame: CGRect(x: 70, y: 20, width: 60, height: 40))
+        window.addSubview(container)
+        container.addSubview(target)
+
+        #expect(PrivacyMaskOverlay.visibleFrame(for: target, in: window)
+            == CGRect(x: 90, y: 50, width: 30, height: 40))
+    }
+
+    @Test func maskFrameIsNilWhenFullyClipped() {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 300, height: 200))
+        let container = UIView(frame: CGRect(x: 20, y: 30, width: 100, height: 80))
+        container.clipsToBounds = true
+        let target = UIView(frame: CGRect(x: 110, y: 20, width: 60, height: 40))
+        window.addSubview(container)
+        container.addSubview(target)
+
+        #expect(PrivacyMaskOverlay.visibleFrame(for: target, in: window) == nil)
+    }
+}
 
 @Suite struct RecordingStartFailureMessageTests {
     @Test func userDecliningRecordingShowsConciseMessage() {
