@@ -163,12 +163,20 @@ struct ChecklistMenuView: View {
                 .simultaneousGesture(TapGesture().onEnded { feedbackIsFocused = false })
 
                 if isSignedIn {
-                    HStack(spacing: 8) {
-                        Image(systemName: "apple.logo")
-                        Text("Signed in as \(testerEmail)")
+                    Button {
+                        testerEmail = ""
+                        isSignedIn = false
+                        signInError = nil
+                        UserDefaults.standard.removeObject(forKey: Self.appleEmailDefaultsKey)
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "apple.logo")
+                            Text("Signed in as \(testerEmail)")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.horizontal)
+                    .buttonStyle(.plain)
                 } else {
                     SignInWithAppleButton(.signIn) { request in
                         feedbackIsFocused = false
