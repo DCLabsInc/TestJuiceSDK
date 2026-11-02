@@ -81,6 +81,24 @@ final class FeedbackViewController: UIViewController {
 }
 ```
 
+### Masking private information in recordings
+
+Register any views that display personal or otherwise sensitive information
+before starting a session. The SDK covers each registered view with an opaque
+black mask during recording; the mask is also visible on screen while recording.
+Masks follow their views as the layout changes and are removed when recording
+stops.
+
+```swift
+let sessionManager = TestJuiceSessionManager.shared
+sessionManager.registerPrivacyMask(for: emailTextField)
+sessionManager.startSession(presentingFrom: self)
+```
+
+Call `unregisterPrivacyMask(for:)` when a view should no longer be masked.
+Sensitive views must be registered before recording starts so the masks are in
+place before the first captured frame.
+
 If a test session is interrupted by a crash, the SDK can include the crash log
 when the developer submits feedback after relaunching the app.
 

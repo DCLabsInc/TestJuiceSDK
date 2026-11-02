@@ -39,6 +39,8 @@ public final class TestJuiceSessionManager: ObservableObject {
     private var currentTest: TestJuiceTest?
     @Published private var checkedItems = Set<String>()
     private let recorder = ScreenRecorder()
+    private let privacyMaskOverlay = PrivacyMaskOverlay()
+    private var privacyMaskViews: [WeakPrivacyMaskView] = []
     private var overlay: FloatingOverlay?
     private var menuController: UIViewController?
     private var pendingVideoURL: URL?
@@ -68,6 +70,18 @@ public final class TestJuiceSessionManager: ObservableObject {
             checklistItems: checklistItems)
         shakeDetector.start { [weak self] in self?.handleShake() }
         recoverFromCrashIfNeeded()
+    }
+
+    func addPrivacyMaskView(_ view: UIView) {
+        privacyMaskViews.removeAll { $0.view == nil }
+        guard !privacyMaskViews.contains(where: { $0.view === view }) else { return }
+        privacyMaskViews.append(WeakPrivacyMaskView(view))
+        privacyMaskOverlay.setViews(privacyMaskViews.compactMap(\.view))
+    }
+
+    func removePrivacyMaskView(_ view: UIView) {
+        privacyMaskViews.removeAll { $0.view == nil || $0.view === view }
+        privacyMaskOverlay.setViews(privacyMaskViews.compactMap(\.view))
     }
 
     // MARK: Crash recovery
@@ -287,8 +301,16 @@ public final class TestJuiceSessionManager: ObservableObject {
             }
             defer { hint.hide() }
             do {
+                let maskViews = privacyMaskViews.compactMap(\.view)
+                if !maskViews.isEmpty {
+                    guard let scene = viewController.viewIfLoaded?.window?.windowScene ?? Self.activeScene() else {
+                        throw PrivacyMaskError.sceneUnavailable
+                    }
+                    privacyMaskOverlay.show(in: scene, masking: maskViews)
+                }
                 try await recorder.start()
             } catch {
+                privacyMaskOverlay.stop()
                 // The session continues without video so testers can still submit feedback.
                 recording = false
                 let alert = UIAlertController(
@@ -332,7 +354,7 @@ public final class TestJuiceSessionManager: ObservableObject {
         guard isActive, !awaitingFeedback else { return }
         awaitingFeedback = true
         TouchIndicator.shared.stop()
-        pendingVideoURL = await recorder.stop()
+        pendingVideoURL = await stopRecording()
 
         let minutes = Int((RecordingLimits.maxDuration / 60).rounded(.down))
         let alert = UIAlertController(
@@ -438,7 +460,7 @@ public final class TestJuiceSessionManager: ObservableObject {
             awaitingFeedback = true
             TouchIndicator.shared.stop()
             let taskID = UIApplication.shared.beginBackgroundTask(withName: "TestJuice.finalize")
-            pendingVideoURL = await recorder.stop()
+            pendingVideoURL = await stopRecording()
             if taskID != .invalid { UIApplication.shared.endBackgroundTask(taskID) }
         }
 
@@ -461,7 +483,7 @@ public final class TestJuiceSessionManager: ObservableObject {
     private func submit(_ result: TestJuiceTestResult) async throws {
         guard isActive, let configuration else { return }
         if !awaitingFeedback && pendingVideoURL == nil {
-            pendingVideoURL = await recorder.stop()
+            pendingVideoURL = await stopRecording()
         }
         let videoSize = pendingVideoURL.map(RecordingLimits.fileSize(at:)) ?? 0
         let tooLarge = RecordingLimits.exceedsUploadLimit(fileSize: videoSize)
@@ -515,8 +537,9 @@ public final class TestJuiceSessionManager: ObservableObject {
         overlay = nil
         var videoURL = pendingVideoURL
         if videoURL == nil && !awaitingFeedback {
-            videoURL = await recorder.stop()
+            videoURL = await stopRecording()
         }
+        privacyMaskOverlay.stop()
         pendingVideoURL = nil
         awaitingFeedback = false
         checkedItems.removeAll()
@@ -524,6 +547,21 @@ public final class TestJuiceSessionManager: ObservableObject {
         crashRecovery = nil
         CrashReporter.endSession()
         currentTest = nil
+    }
+
+    private func stopRecording() async -> URL? {
+        let videoURL = await recorder.stop()
+        privacyMaskOverlay.stop()
+        return videoURL
+    }
+}
+
+@MainActor
+private final class WeakPrivacyMaskView {
+    weak var view: UIView?
+
+    init(_ view: UIView) {
+        self.view = view
     }
 }
 #endif
