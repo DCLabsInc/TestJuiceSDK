@@ -271,10 +271,9 @@ public struct FeatureBerryTestingSettings: View {
     }
 
     public var body: some View {
-        Toggle(title, isOn: Binding(
-            get: { FeatureBerry.isTestingSessionEnabled },
-            set: { FeatureBerry.setTestingSessionEnabled($0) }
-        ))
+        Button(title) {
+            FeatureBerry.setTestingSessionEnabled(true)
+        }
         .tint(tint)
     }
 }

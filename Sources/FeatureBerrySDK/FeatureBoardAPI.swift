@@ -96,14 +96,14 @@ public struct FeatureBerryRoadmapResponse: Decodable, Sendable {
 }
 
 public struct FeatureBerryFeatureSuggestion: Encodable, Sendable {
-    public let appId: Int
+    public let appShortName: String
     public let apiKey: String
     public let email: String
     public let featureName: String
     public let description: String?
 
-    public init(appId: Int, apiKey: String, email: String, featureName: String, description: String? = nil) {
-        self.appId = appId
+    public init(appShortName: String, apiKey: String, email: String, featureName: String, description: String? = nil) {
+        self.appShortName = appShortName
         self.apiKey = apiKey
         self.email = email
         self.featureName = featureName
@@ -112,7 +112,7 @@ public struct FeatureBerryFeatureSuggestion: Encodable, Sendable {
 }
 
 struct FeatureBoardConfiguration: Sendable {
-    let appId: Int
+    let appShortName: String
     let apiKey: String
     let baseURL: URL
 }
@@ -134,7 +134,7 @@ struct FeatureBoardClient: Sendable {
         }
         components.path = Self.featuresPath
         components.queryItems = [
-            URLQueryItem(name: "appId", value: String(configuration.appId)),
+            URLQueryItem(name: "appShortName", value: configuration.appShortName),
             URLQueryItem(name: "apiKey", value: configuration.apiKey)
         ]
         guard let url = components.url else { throw FeatureBerryError.invalidURL }

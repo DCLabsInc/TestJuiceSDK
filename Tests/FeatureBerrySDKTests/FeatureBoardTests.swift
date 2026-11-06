@@ -3,9 +3,9 @@ import Testing
 @testable import FeatureBerrySDK
 
 @Suite struct FeatureBoardTests {
-    @Test func roadmapRequestUsesAppIdAndApiKeyQueryParameters() throws {
+    @Test func roadmapRequestUsesAppShortNameAndApiKeyQueryParameters() throws {
         let client = FeatureBoardClient(configuration: .init(
-            appId: 7,
+            appShortName: "StepDog",
             apiKey: "key & value",
             baseURL: URL(string: "https://portal.featureberry.com")!))
 
@@ -15,17 +15,18 @@ import Testing
 
         #expect(request.httpMethod == "GET")
         #expect(components.path == "/api/sdk/roadmap/features")
-        #expect(components.queryItems?.first(where: { $0.name == "appId" })?.value == "7")
+        #expect(components.queryItems?.first(where: { $0.name == "appShortName" })?.value == "StepDog")
+        #expect(components.queryItems?.first(where: { $0.name == "appId" }) == nil)
         #expect(components.queryItems?.first(where: { $0.name == "apiKey" })?.value == "key & value")
     }
 
     @Test func suggestionRequestEncodesRequiredPayload() throws {
         let client = FeatureBoardClient(configuration: .init(
-            appId: 7,
+            appShortName: "StepDog",
             apiKey: "sdk-key",
             baseURL: URL(string: "https://portal.featureberry.com")!))
         let request = try client.makeSuggestionRequest(FeatureBerryFeatureSuggestion(
-            appId: 7,
+            appShortName: "StepDog",
             apiKey: "sdk-key",
             email: "tester@example.com",
             featureName: "Dark mode",
@@ -35,7 +36,8 @@ import Testing
 
         #expect(request.httpMethod == "POST")
         #expect(request.url?.path == "/api/sdk/feature/suggest")
-        #expect(json["appId"] as? Int == 7)
+        #expect(json["appShortName"] as? String == "StepDog")
+        #expect(json["appId"] == nil)
         #expect(json["apiKey"] as? String == "sdk-key")
         #expect(json["email"] as? String == "tester@example.com")
         #expect(json["featureName"] as? String == "Dark mode")
@@ -44,7 +46,7 @@ import Testing
 
     @Test func voteRequestPostsEmailToApiProvidedUrl() throws {
         let client = FeatureBoardClient(configuration: .init(
-            appId: 7,
+            appShortName: "StepDog",
             apiKey: "sdk-key",
             baseURL: URL(string: "https://portal.featureberry.com")!))
         let voteURL = URL(string: "https://portal.featureberry.com/api/sdk/feature/42/vote")!
@@ -63,7 +65,7 @@ import Testing
     ])
     func voteRequestRejectsInsecureOrUntrustedUrls(url: URL) {
         let client = FeatureBoardClient(configuration: .init(
-            appId: 7,
+            appShortName: "StepDog",
             apiKey: "sdk-key",
             baseURL: URL(string: "https://portal.featureberry.com")!))
 

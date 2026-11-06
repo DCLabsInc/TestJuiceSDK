@@ -52,7 +52,7 @@ struct SettingsView: View {
     var body: some View {
         List {
             if let apiKey = FeatureBerryAppConfiguration.apiKey() {
-                FeatureBerryFeatureBoardButton(appId: 1, apiKey: apiKey)
+                FeatureBerryFeatureBoardButton(appShortName: "YOUR_APP_SHORT_NAME", apiKey: apiKey)
             }
         }
     }
@@ -63,7 +63,7 @@ For UIKit apps, present it from a view controller (for example, in a table
 selection handler):
 
 ```swift
-FeatureBerryFeatureBoard.present(from: self, appId: 1, apiKey: apiKey)
+FeatureBerryFeatureBoard.present(from: self, appShortName: "YOUR_APP_SHORT_NAME", apiKey: apiKey)
 ```
 
 Provide the public SDK API key generated for your app. Never include a privileged
@@ -90,11 +90,12 @@ if FeatureBerry.Feature("new-checkout").Testing {
 }
 ```
 
-`.Live` is true for features whose Horizon status is `Shipped`. `.Testing` is true
-for `Testing` features only while a testing session is enabled. Add the provided
-SwiftUI control to your settings to let users enable that session; it resets
-automatically when the app enters the background and is not persisted across
-app launches. Its tint is customizable:
+Feature flags have two enabled states: `.Live` is true for all users when a
+feature's Horizon status is `Shipped`; `.Testing` is true for the local user when
+its status is `Testing` and a testing session is active. Add the provided button
+under Feature Requests in your settings to let users start testing. The session
+resets automatically when the app enters the background and is not persisted
+across app launches. Its tint is customizable:
 
 ```swift
 FeatureBerryTestingSettings(tint: .orange)
