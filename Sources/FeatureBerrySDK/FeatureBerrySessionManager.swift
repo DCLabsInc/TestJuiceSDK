@@ -250,6 +250,7 @@ public final class FeatureBerrySessionManager: ObservableObject {
         dispatchPrecondition(condition: .onQueue(.main))
         #endif
         guard let configuration, !isActive else { return }
+        FeatureBerry.userIsTesting = true
         checkedItems.removeAll()
         Task { @MainActor in
             // If the definition can't be fetched, fall back to the feedback-only flow.
@@ -539,6 +540,7 @@ public final class FeatureBerrySessionManager: ObservableObject {
         crashRecovery = nil
         CrashReporter.endSession()
         currentTest = nil
+        FeatureBerry.userIsTesting = false
     }
 
     private func stopRecording() async -> URL? {

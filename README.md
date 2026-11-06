@@ -100,8 +100,10 @@ if FeatureBerry.Feature("new-checkout").Testing && FeatureBerry.userIsTesting {
 when its status is `Testing`, regardless of the user's opt-in. Combine `.Testing`
 with `FeatureBerry.userIsTesting` to show testing features only to opted-in users.
 Add the provided button under Feature Requests in your settings to let users opt
-in, or set `FeatureBerry.userIsTesting` from your own button. Testing mode resets
-when the app enters the background and is not persisted across app launches.
+in, or set `FeatureBerry.userIsTesting` from your own button. Starting a configured
+test session also enables testing mode; successfully submitting the session
+disables it. Testing mode resets when the app enters the background and is not
+persisted across app launches.
 The provided button's tint is customizable:
 
 ```swift
