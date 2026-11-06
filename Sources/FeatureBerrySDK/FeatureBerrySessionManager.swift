@@ -49,8 +49,6 @@ public final class FeatureBerrySessionManager: ObservableObject {
     private var foregroundObserver: NSObjectProtocol?
     private var isActive = false
     private var limitTask: Task<Void, Never>?
-    private let shakeDetector = ShakeDetector()
-    private var isShowingRepeatPrompt = false
     private var crashRecovery: CrashRecovery?
     private var launchObserver: NSObjectProtocol?
     private var liveCheckObserver: NSObjectProtocol?
@@ -70,7 +68,6 @@ public final class FeatureBerrySessionManager: ObservableObject {
             testType: testType,
             codeword: codeword,
             checklistItems: checklistItems)
-        shakeDetector.start { [weak self] in self?.handleShake() }
         recoverFromCrashIfNeeded()
         startLiveVersionChecks()
     }
@@ -176,15 +173,6 @@ public final class FeatureBerrySessionManager: ObservableObject {
             .first(where: { $0.activationState == .foregroundActive })
     }
 
-    /// Deterministic top-most controller: active foreground scene, its key window, then the presented chain.
-    private static func topMostViewController() -> UIViewController? {
-        guard let scene = activeScene() else { return nil }
-        let windows = scene.windows.filter { !($0 is PassthroughWindow) }
-        guard let root = (windows.first(where: { $0.isKeyWindow }) ?? windows.first)?.rootViewController
-        else { return nil }
-        return topMost(from: root)
-    }
-
     private static let readinessRetryLimit = 10
     private static let readinessRetryDelay: Duration = .milliseconds(250)
 
@@ -234,26 +222,6 @@ public final class FeatureBerrySessionManager: ObservableObject {
         presentMenu(initialFeedback: "Crashed - logs attached")
     }
 
-    private func handleShake() {
-        guard configuration != nil, !isActive, !isShowingRepeatPrompt,
-              let presenter = Self.topMostViewController()
-        else { return }
-        if presenter is UIAlertController { return }
-
-        isShowingRepeatPrompt = true
-        let alert = UIAlertController(title: "Perform another test?", message: nil, preferredStyle: .alert)
-        Self.stylePopup(alert)
-        alert.addAction(UIAlertAction(title: "No", style: .cancel) { [weak self] _ in
-            self?.isShowingRepeatPrompt = false
-        })
-        alert.addAction(UIAlertAction(title: "Yes", style: .default) { [weak self] _ in
-            guard let self else { return }
-            self.isShowingRepeatPrompt = false
-            self.startSession(presentingFrom: presenter, ignoringPreviousCompletion: true)
-        })
-        presenter.present(alert, animated: true)
-    }
-
     /// Automatically ticks a configured checklist item during an active session.
     /// The index is zero-based and refers to the order of `checklistItems` passed to `configure`.
     public func tickChecklistItem(at index: Int) {
@@ -278,16 +246,10 @@ public final class FeatureBerrySessionManager: ObservableObject {
 
     @MainActor
     public func startSession(presentingFrom viewController: UIViewController) {
-        startSession(presentingFrom: viewController, ignoringPreviousCompletion: false)
-    }
-
-    private func startSession(presentingFrom viewController: UIViewController, ignoringPreviousCompletion: Bool) {
         #if DEBUG
         dispatchPrecondition(condition: .onQueue(.main))
         #endif
-        guard let configuration, !isActive,
-              ignoringPreviousCompletion || !hasCompletedTest(configuration)
-        else { return }
+        guard let configuration, !isActive else { return }
         checkedItems.removeAll()
         Task { @MainActor in
             // If the definition can't be fetched, fall back to the feedback-only flow.
@@ -309,25 +271,6 @@ public final class FeatureBerrySessionManager: ObservableObject {
             }
             self.presentConfirmation(from: presenter)
         }
-    }
-
-    // MARK: Completion tracking
-
-    /// Completion is remembered per test and per installed build (version + build number).
-    private func completionKey(_ configuration: Configuration) -> String {
-        let info = Bundle.main.infoDictionary
-        let version = info?["CFBundleShortVersionString"] as? String ?? ""
-        let build = info?["CFBundleVersion"] as? String ?? ""
-        return "com.featureberry.sdk.completed.\(configuration.testType.rawValue).\(configuration.codeword)"
-            + ".\(version).\(build)"
-    }
-
-    private func hasCompletedTest(_ configuration: Configuration) -> Bool {
-        UserDefaults.standard.bool(forKey: completionKey(configuration))
-    }
-
-    private func markTestCompleted(_ configuration: Configuration) {
-        UserDefaults.standard.set(true, forKey: completionKey(configuration))
     }
 
     private func presentConfirmation(from viewController: UIViewController) {
@@ -544,7 +487,6 @@ public final class FeatureBerrySessionManager: ObservableObject {
             telemetry: telemetry,
             videoURL: tooLarge ? nil : pendingVideoURL,
             crashLogURL: recovery?.crashLogURL)
-        markTestCompleted(configuration)
         var savedToPhotos = recovery?.savedToPhotos ?? false
         if recovery == nil, let videoURL = pendingVideoURL { savedToPhotos = await saveToCameraRoll(videoURL) }
         let scene = overlay?.presenter?.view.window?.windowScene
