@@ -88,21 +88,36 @@ if FeatureBerry.Feature("dark-mode").Live {
     showDarkMode()
 }
 
-if FeatureBerry.Feature("new-checkout").Testing {
+if FeatureBerry.Feature("new-checkout").Testing && FeatureBerry.userIsTesting {
     showNewCheckout()
 }
 ```
 
-Feature flags have two enabled states: `.Live` is true for all users when a
-feature's Horizon status is `Shipped`; `.Testing` is true for the local user when
-its status is `Testing` and a testing session is active. Add the provided button
-under Feature Requests in your settings to let users start testing. The session
-resets automatically when the app enters the background and is not persisted
-across app launches. Its tint is customizable:
+`.Live` is true when a feature's Horizon status is `Shipped`; `.Testing` is true
+when its status is `Testing`, regardless of the user's opt-in. Combine `.Testing`
+with `FeatureBerry.userIsTesting` to show testing features only to opted-in users.
+Add the provided button under Feature Requests in your settings to let users opt
+in, or set `FeatureBerry.userIsTesting` from your own button. Testing mode resets
+when the app enters the background and is not persisted across app launches.
+The provided button's tint is customizable:
 
 ```swift
 FeatureBerryTestingSettings(tint: .orange)
 ```
+
+Set `FeatureBerry.onUserIsTestingChanged` to refresh your app's current view when
+the user opts in or testing mode resets. The callback runs on the main actor and
+receives the new value; assigning the same value again does not call it.
+For example, in a view controller:
+
+```swift
+FeatureBerry.onUserIsTestingChanged = { [weak self] _ in
+    self?.updateFeatureViews()
+}
+```
+
+Clear the callback when it is no longer needed. Configure feature flags before
+the user opts in, because `configure` also resets testing mode.
 
 Call `FeatureBerry.refreshFeature(codeword:force:)` to explicitly refresh an
 individual status, or `FeatureBerry.refreshFeatures(force:)` to fetch the app's
@@ -117,7 +132,8 @@ screen recording. Do not call `FeatureBerrySessionManager.configure(...)` or
 Call `startSession(presentingFrom:)` on the main thread. If called from an early
 lifecycle hook such as SwiftUI `onAppear`, the SDK waits briefly (about 2.5
 seconds at most) for a foreground-active scene and a presenter attached to a
-window before presenting.
+window before presenting. Call it again after a session completes to run another
+test; shaking the device does not start a session.
 
 Configure the shared session manager before offering the session flow to users.
 Use an API key appropriate for a client app (never embed a privileged server
