@@ -7,19 +7,19 @@ import WebKit
 /// A button that presents the FeatureBerry roadmap as a native sheet.
 @MainActor
 public struct FeatureBerryFeatureBoardButton: View {
-    private let appId: Int
+    private let appShortName: String
     private let apiKey: String
     private let baseURL: URL
     private let title: String
     @State private var isPresented = false
 
     public init(
-        appId: Int,
+        appShortName: String,
         apiKey: String,
         baseURL: URL = FeatureBerryConfiguration.defaultBaseURL,
         title: String = "Feature Board"
     ) {
-        self.appId = appId
+        self.appShortName = appShortName
         self.apiKey = apiKey
         self.baseURL = baseURL
         self.title = title
@@ -28,7 +28,7 @@ public struct FeatureBerryFeatureBoardButton: View {
     public var body: some View {
         Button(title) { isPresented = true }
         .sheet(isPresented: $isPresented) {
-            FeatureBoardView(appId: appId, apiKey: apiKey, baseURL: baseURL)
+            FeatureBoardView(appShortName: appShortName, apiKey: apiKey, baseURL: baseURL)
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
@@ -40,12 +40,12 @@ public struct FeatureBerryFeatureBoardButton: View {
 public enum FeatureBerryFeatureBoard {
     public static func present(
         from presenter: UIViewController,
-        appId: Int,
+        appShortName: String,
         apiKey: String,
         baseURL: URL = FeatureBerryConfiguration.defaultBaseURL
     ) {
         let controller = UIHostingController(
-            rootView: FeatureBoardView(appId: appId, apiKey: apiKey, baseURL: baseURL))
+            rootView: FeatureBoardView(appShortName: appShortName, apiKey: apiKey, baseURL: baseURL))
         controller.modalPresentationStyle = .pageSheet
         if let sheet = controller.sheetPresentationController {
             sheet.detents = [.large()]
@@ -67,7 +67,7 @@ private struct FeatureBoardView: View {
         case suggest(String, String)
     }
 
-    let appId: Int
+    let appShortName: String
     let apiKey: String
     let baseURL: URL
     @Environment(\.dismiss) private var dismiss
@@ -85,7 +85,8 @@ private struct FeatureBoardView: View {
     @State private var statusMessage: String?
 
     private var client: FeatureBoardClient {
-        FeatureBoardClient(configuration: FeatureBoardConfiguration(appId: appId, apiKey: apiKey, baseURL: baseURL))
+        FeatureBoardClient(configuration: FeatureBoardConfiguration(
+            appShortName: appShortName, apiKey: apiKey, baseURL: baseURL))
     }
 
     private var features: [FeatureBerryRoadmapFeature] {
@@ -291,7 +292,7 @@ private struct FeatureBoardView: View {
                 statusMessage = "Your vote has been recorded."
             case let .suggest(name, description):
                 try await client.suggest(FeatureBerryFeatureSuggestion(
-                    appId: appId,
+                    appShortName: appShortName,
                     apiKey: apiKey,
                     email: email,
                     featureName: name,
