@@ -91,14 +91,14 @@ if FeatureBerry.Feature("dark-mode").Live {
     showDarkMode()
 }
 
-if FeatureBerry.Feature("new-checkout").Testing && FeatureBerry.userIsTesting {
+if FeatureBerry.Feature("new-checkout").LiveOrUserIsTesting {
     showNewCheckout()
 }
 ```
 
 `.Live` is true when a feature's Horizon status is `Shipped`; `.Testing` is true
-when its status is `Testing`, regardless of the user's opt-in. Combine `.Testing`
-with `FeatureBerry.userIsTesting` to show testing features only to opted-in users.
+when its status is `Testing`, regardless of the user's opt-in. `.LiveOrUserIsTesting`
+is true for shipped features, or for testing features when the user has opted in.
 Add the provided button under Feature Requests in your settings to let users opt
 in, or set `FeatureBerry.userIsTesting` from your own button. Starting a configured
 test session also enables testing mode; successfully submitting the session

@@ -122,6 +122,23 @@ import UIKit
         FeatureBerry.userIsTesting = false
     }
 
+    @Test func liveOrUserIsTestingFlagsPassForLiveOrOptedInTestingFeatures() {
+        FeatureBerry.cacheHorizon(.shipped, for: "live")
+        FeatureBerry.cacheHorizon(.testing, for: "testing")
+        FeatureBerry.cacheHorizon(.upNext, for: "up-next")
+        defer { FeatureBerry.userIsTesting = false }
+
+        FeatureBerry.userIsTesting = false
+        #expect(FeatureBerry.Feature("live").LiveOrUserIsTesting)
+        #expect(!FeatureBerry.Feature("testing").LiveOrUserIsTesting)
+        #expect(!FeatureBerry.Feature("up-next").LiveOrUserIsTesting)
+
+        FeatureBerry.userIsTesting = true
+        #expect(FeatureBerry.Feature("live").LiveOrUserIsTesting)
+        #expect(FeatureBerry.Feature("testing").LiveOrUserIsTesting)
+        #expect(!FeatureBerry.Feature("up-next").LiveOrUserIsTesting)
+    }
+
     @Test func testingModeChangesNotifyTheHostOncePerChange() {
         FeatureBerry.onUserIsTestingChanged = nil
         FeatureBerry.userIsTesting = false
