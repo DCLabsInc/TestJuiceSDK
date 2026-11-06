@@ -12,9 +12,11 @@ public struct FeatureBerryRoadmapFeature: Decodable, Identifiable, Sendable {
     public let priority: Int?
     public let voteCount: Int
     public let links: [String: String]
+    private let featureDetailURL: String?
 
     public var detailURL: String? {
         Self.link(in: links, matching: ["FeatureDetail", "featureDetail", "detail", "details"])
+            ?? featureDetailURL
     }
 
     public var voteURL: String? {
@@ -30,6 +32,9 @@ public struct FeatureBerryRoadmapFeature: Decodable, Identifiable, Sendable {
         case priority
         case voteCount
         case links
+        case statusLabel
+        case featureDetailURL
+        case featureDetailUrl
     }
 
     public init(from decoder: Decoder) throws {
@@ -37,11 +42,35 @@ public struct FeatureBerryRoadmapFeature: Decodable, Identifiable, Sendable {
         id = try container.decode(Int.self, forKey: .id)
         title = try container.decode(String.self, forKey: .title)
         description = try container.decodeIfPresent(String.self, forKey: .description)
-        status = try container.decodeIfPresent(String.self, forKey: .status)
-        horizon = try container.decodeIfPresent(String.self, forKey: .horizon)
+        status = try Self.decodeStatus(container, key: .status, names: ["Backlog", "InProgress", "Done"])
+            ?? container.decodeIfPresent(String.self, forKey: .statusLabel)
+        horizon = try Self.decodeStatus(
+            container, key: .horizon, names: ["Future", "UpNext", "InProgress", "Shipped", "Testing"])
         priority = try container.decodeIfPresent(Int.self, forKey: .priority)
         voteCount = try container.decodeIfPresent(Int.self, forKey: .voteCount) ?? 0
         links = try container.decodeIfPresent([String: String].self, forKey: .links) ?? [:]
+        featureDetailURL = try container.decodeIfPresent(String.self, forKey: .featureDetailURL)
+            ?? container.decodeIfPresent(String.self, forKey: .featureDetailUrl)
+    }
+
+    private static func decodeStatus(
+        _ container: KeyedDecodingContainer<CodingKeys>, key: CodingKeys, names: [String]
+    ) throws -> String? {
+        guard container.contains(key), try !container.decodeNil(forKey: key) else { return nil }
+        if let value = try? container.decode(String.self, forKey: key) { return value }
+        let value = try container.decode(Int.self, forKey: key)
+        guard names.indices.contains(value) else {
+            throw DecodingError.dataCorruptedError(
+                forKey: key, in: container, debugDescription: "Unknown \(key.stringValue) value: \(value)")
+        }
+        return names[value]
+    }
+
+    var isClosed: Bool {
+        [status, horizon].compactMap { $0 }.contains {
+            let value = $0.lowercased()
+            return value == "done" || value.contains("closed") || value.contains("shipped")
+        }
     }
 
     fileprivate static func link(in links: [String: String], matching names: [String]) -> String? {
@@ -61,6 +90,7 @@ public struct FeatureBerryRoadmapResponse: Decodable, Sendable {
         case links
         case profileURL
         case ProfileURL
+        case profileUrl
     }
 
     private struct Links: Decodable {
@@ -88,6 +118,7 @@ public struct FeatureBerryRoadmapResponse: Decodable, Sendable {
         let links = try container.decodeIfPresent(Links.self, forKey: .links)?.values ?? [:]
         profileURL = try container.decodeIfPresent(String.self, forKey: .profileURL)
             ?? container.decodeIfPresent(String.self, forKey: .ProfileURL)
+            ?? container.decodeIfPresent(String.self, forKey: .profileUrl)
             ?? FeatureBerryRoadmapFeature.link(in: links, matching: ["ProfileURL", "profileURL", "profile"])
             ?? features.first.flatMap {
                 FeatureBerryRoadmapFeature.link(in: $0.links, matching: ["ProfileURL", "profileURL", "profile"])

@@ -72,6 +72,9 @@ FeatureBerryFeatureBoard.present(from: self, appShortName: "YOUR_APP_SHORT_NAME"
 Provide the public SDK API key generated for your app. Never include a privileged
 server secret in an iOS app. The board fetches roadmap features from the SDK API;
 voting and suggestions prompt for Sign in with Apple when needed.
+The backend's roadmap and suggestion endpoints must support `appShortName` and
+the user-level SDK key, as used by the feature flags API. Older backend versions
+that require an app ID and app-specific key are not compatible.
 
 ## Feature flags and testing mode
 
