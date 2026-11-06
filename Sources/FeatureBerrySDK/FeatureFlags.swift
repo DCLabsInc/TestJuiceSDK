@@ -263,6 +263,11 @@ public struct FeatureBerryFeatureFlag {
     public var Testing: Bool {
         FeatureBerry.cachedHorizon(for: codeword) == .testing
     }
+
+    public var LiveOrUserIsTesting: Bool {
+        let horizon = FeatureBerry.cachedHorizon(for: codeword)
+        return horizon == .shipped || (horizon == .testing && FeatureBerry.userIsTesting)
+    }
 }
 
 #if canImport(SwiftUI)
