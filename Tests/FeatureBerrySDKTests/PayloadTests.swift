@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import TestJuiceSDK
+@testable import FeatureBerrySDK
 
 #if canImport(UIKit) && canImport(ReplayKit)
 import ReplayKit
@@ -99,13 +99,13 @@ import UIKit
 @Suite struct SessionUploaderTests {
     @Test func uploadRequestIncludesVideoFieldAndAPIKey() throws {
         let videoURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("testjuice-test-\(UUID().uuidString).mp4")
+            .appendingPathComponent("featureberry-test-\(UUID().uuidString).mp4")
         try Data("video-data".utf8).write(to: videoURL)
         defer { try? FileManager.default.removeItem(at: videoURL) }
 
         let uploader = SessionUploader(
             apiKey: "test-key",
-            endpoint: URL(string: "https://portal.testjuice.com/api/sdk/v1/tests/7/video")!)
+            endpoint: URL(string: "https://portal.featureberry.com/api/sdk/v1/tests/7/video")!)
         let (request, body) = try uploader.makeUploadRequest(videoURL: videoURL)
 
         #expect(request.httpMethod == "POST")
@@ -127,15 +127,15 @@ import UIKit
 
 @Suite struct ClientTests {
     @Test func requestUsesPortalHostPathAndApiKey() throws {
-        let client = TestJuiceClient(configuration: .init(apiKey: "k123"))
+        let client = FeatureBerryClient(configuration: .init(apiKey: "k123"))
         let req = try client.makeRequest(method: "GET", path: "/tests?limit=5")
-        #expect(req.url?.absoluteString == "https://portal.testjuice.com/api/sdk/v1/tests?limit=5")
+        #expect(req.url?.absoluteString == "https://portal.featureberry.com/api/sdk/v1/tests?limit=5")
         #expect(req.value(forHTTPHeaderField: "X-Api-Key") == "k123")
     }
 
     @Test func resultWithoutVideoUsesJSONRequest() throws {
-        let client = TestJuiceClient(configuration: .init(apiKey: "k123"))
-        let result = TestJuiceTestResult(
+        let client = FeatureBerryClient(configuration: .init(apiKey: "k123"))
+        let result = FeatureBerryTestResult(
             testType: .feature,
             codeword: "code",
             testerEmail: "tester@example.com",
@@ -146,7 +146,7 @@ import UIKit
         let request = try client.makeResultRequest(result)
 
         #expect(request.httpMethod == "POST")
-        #expect(request.url?.absoluteString == "https://portal.testjuice.com/api/sdk/v1/tests/results")
+        #expect(request.url?.absoluteString == "https://portal.featureberry.com/api/sdk/v1/tests/results")
         #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
         #expect(request.value(forHTTPHeaderField: "X-Api-Key") == "k123")
         #expect(request.httpBody?.range(of: Data(#""feedback":"Feedback""#.utf8)) != nil)
@@ -154,15 +154,15 @@ import UIKit
     }
 
     @Test func resultRequestEncodesOptionalTelemetryAtTopLevel() throws {
-        let client = TestJuiceClient(configuration: .init(apiKey: "k123"))
-        let result = TestJuiceTestResult(
+        let client = FeatureBerryClient(configuration: .init(apiKey: "k123"))
+        let result = FeatureBerryTestResult(
             testType: .feature,
             codeword: "code",
             testerEmail: "tester@example.com",
             outcome: "Pass",
             feedback: "Feedback",
             checkedItems: [])
-        let telemetry = TestJuiceDeviceTelemetry(
+        let telemetry = FeatureBerryDeviceTelemetry(
             deviceModel: "iPhone",
             osVersion: "18.0",
             networkType: "WiFi",
@@ -186,17 +186,17 @@ import UIKit
     }
 
     @Test func videoEndpointUsesTestRecordId() throws {
-        let client = TestJuiceClient(configuration: .init(apiKey: "k123"))
+        let client = FeatureBerryClient(configuration: .init(apiKey: "k123"))
         #expect(try client.makeVideoRequestURL(testRecordId: 42).absoluteString
-            == "https://portal.testjuice.com/api/sdk/v1/tests/42/video")
+            == "https://portal.featureberry.com/api/sdk/v1/tests/42/video")
         let response = try JSONDecoder().decode(
-            TestJuiceClient.TestResultResponse.self,
+            FeatureBerryClient.TestResultResponse.self,
             from: Data(#"{"testRecordId":42,"status":"passed"}"#.utf8))
         #expect(response.testRecordId == 42)
     }
 
     @Test func feedbackOnlyResultOmitsOutcome() throws {
-        let result = TestJuiceTestResult(
+        let result = FeatureBerryTestResult(
             testType: .release,
             codeword: "code",
             testerEmail: "tester@example.com",
@@ -210,7 +210,7 @@ import UIKit
     }
 
     @Test func emptyTesterEmailUsesAnonymousAddress() throws {
-        let result = TestJuiceTestResult(
+        let result = FeatureBerryTestResult(
             testType: .feature,
             codeword: "code",
             testerEmail: "  \n",
@@ -227,11 +227,11 @@ import UIKit
     }
 
     @Test func requestErrorsExposeActionableMessages() {
-        #expect(TestJuiceError.api(
+        #expect(FeatureBerryError.api(
             status: 400,
             body: APIErrorBody(error: "invalid_result", message: "Missing codeword.")
         ).localizedDescription == "Missing codeword.")
-        #expect(TestJuiceError.badStatus(500).localizedDescription == "The request failed (HTTP 500).")
+        #expect(FeatureBerryError.badStatus(500).localizedDescription == "The request failed (HTTP 500).")
     }
 }
 
@@ -251,7 +251,7 @@ import UIKit
 
 @Suite struct TestDefinitionTests {
     @Test func definitionRequestTargetsTestsEndpoint() throws {
-        let client = TestJuiceClient(configuration: TestJuiceConfiguration(apiKey: "k"))
+        let client = FeatureBerryClient(configuration: FeatureBerryConfiguration(apiKey: "k"))
         let request = try client.makeDefinitionRequest(testType: .release, codeword: "a b&c")
         let url = try #require(request.url?.absoluteString)
         #expect(url.hasSuffix("/api/sdk/v1/tests?testType=Release&codeword=a%20b%26c"))
@@ -260,13 +260,13 @@ import UIKit
 
     @Test func decodesShowPassFailFlag() throws {
         let json = #"{"testType":"Feature","codeword":"x","showPassFailButtons":false,"checklist":[]}"#
-        let decoded = try JSONDecoder().decode(TestJuiceClient.TestDefinitionResponse.self, from: Data(json.utf8))
+        let decoded = try JSONDecoder().decode(FeatureBerryClient.TestDefinitionResponse.self, from: Data(json.utf8))
         #expect(decoded.showPassFailButtons == false)
     }
 
     @Test func decodesRewardFromDefinition() throws {
         let json = #"{"showPassFailButtons":true,"reward":{"description":"Free coffee","groupTitle":"Perks"}}"#
-        let decoded = try JSONDecoder().decode(TestJuiceClient.TestDefinitionResponse.self, from: Data(json.utf8))
+        let decoded = try JSONDecoder().decode(FeatureBerryClient.TestDefinitionResponse.self, from: Data(json.utf8))
         #expect(decoded.reward?.description == "Free coffee")
         #expect(decoded.reward?.groupTitle == "Perks")
     }
@@ -276,13 +276,13 @@ import UIKit
         #"{"showPassFailButtons":false,"reward":null}"#
     ])
     func missingOrNullRewardIsAccepted(json: String) throws {
-        let decoded = try JSONDecoder().decode(TestJuiceClient.TestDefinitionResponse.self, from: Data(json.utf8))
+        let decoded = try JSONDecoder().decode(FeatureBerryClient.TestDefinitionResponse.self, from: Data(json.utf8))
         #expect(decoded.reward == nil)
     }
 
     @Test func decodesRewardAvailability() throws {
         let json = #"{"showPassFailButtons":true,"reward":{"description":"Coffee","availableCodes":0,"availabilityStatus":"No codes left","totalCodes":5}}"#
-        let decoded = try JSONDecoder().decode(TestJuiceClient.TestDefinitionResponse.self, from: Data(json.utf8))
+        let decoded = try JSONDecoder().decode(FeatureBerryClient.TestDefinitionResponse.self, from: Data(json.utf8))
         #expect(decoded.reward?.availableCodes == 0)
         #expect(decoded.reward?.availabilityStatus == "No codes left")
         #expect(decoded.reward?.totalCodes == 5)
@@ -291,7 +291,7 @@ import UIKit
 
     @Test func testModelDecodesReward() throws {
         let json = #"{"title":"Test","instructions":"Try it.","checklist":[],"showPassFailButtons":false,"reward":{"description":null,"groupTitle":"Prize"}}"#
-        let decoded = try JSONDecoder().decode(TestJuiceTest.self, from: Data(json.utf8))
+        let decoded = try JSONDecoder().decode(FeatureBerryTest.self, from: Data(json.utf8))
         #expect(decoded.reward?.description == "Prize")
         #expect(decoded.reward?.groupTitle == "Prize")
     }
@@ -299,18 +299,18 @@ import UIKit
 
 @Suite struct LiveAppURLTests {
     @Test func parsesValidURLAndRejectsEmptyOrInvalid() {
-        #expect(TestJuiceClient.parseLiveAppURL(Data("https://apps.apple.com/app/id1".utf8))
+        #expect(FeatureBerryClient.parseLiveAppURL(Data("https://apps.apple.com/app/id1".utf8))
             == URL(string: "https://apps.apple.com/app/id1"))
-        #expect(TestJuiceClient.parseLiveAppURL(Data("\"https://apps.apple.com/app/id1\"".utf8))
+        #expect(FeatureBerryClient.parseLiveAppURL(Data("\"https://apps.apple.com/app/id1\"".utf8))
             == URL(string: "https://apps.apple.com/app/id1"))
-        #expect(TestJuiceClient.parseLiveAppURL(Data()) == nil)
-        #expect(TestJuiceClient.parseLiveAppURL(Data("\"\"".utf8)) == nil)
-        #expect(TestJuiceClient.parseLiveAppURL(Data("not a url".utf8)) == nil)
+        #expect(FeatureBerryClient.parseLiveAppURL(Data()) == nil)
+        #expect(FeatureBerryClient.parseLiveAppURL(Data("\"\"".utf8)) == nil)
+        #expect(FeatureBerryClient.parseLiveAppURL(Data("not a url".utf8)) == nil)
     }
 
     @Test func requestTargetsTestNowLiveEndpoint() throws {
-        let client = TestJuiceClient(configuration: TestJuiceConfiguration(apiKey: "k"))
+        let client = FeatureBerryClient(configuration: FeatureBerryConfiguration(apiKey: "k"))
         let url = try client.makeLiveAppRequest(codeword: "a b&c").url?.absoluteString
-        #expect(url == "https://portal.testjuice.com/api/testnowlive?codeword=a%20b%26c")
+        #expect(url == "https://portal.featureberry.com/api/testnowlive?codeword=a%20b%26c")
     }
 }

@@ -1,7 +1,7 @@
-# TestJuice SDK
+# FeatureBerry SDK
 
-TestJuiceSDK lets an iOS app collect a screen recording, checklist status, and
-user feedback for a test session so it will all appear in the TestJuice portal.
+FeatureBerrySDK lets an iOS app collect a screen recording, checklist status, and
+user feedback for a test session so it will all appear in the FeatureBerry portal.
 
 ## Requirements
 
@@ -13,10 +13,10 @@ user feedback for a test session so it will all appear in the TestJuice portal.
 In Xcode, choose **File > Add Package Dependencies…** and enter:
 
 ```text
-https://github.com/DCLabsInc/TestJuiceSDK
+https://github.com/DCLabsInc/featureberry-ios-sdk
 ```
 
-Select the `TestJuiceSDK` library for your app target.
+Select the `FeatureBerrySDK` library for your app target.
 
 > [!IMPORTANT]
 > **Sign in with Apple is required.** Enable the **Sign in with Apple**
@@ -48,24 +48,24 @@ Other Info.plist privacy keys depend on which features you enable:
 
 Configure the shared session manager before offering the session flow to users.
 Use an API key appropriate for a client app (never embed a privileged server
-secret), and provide the test type and codeword supplied by TestJuice,
+secret), and provide the test type and codeword supplied by FeatureBerry,
 along with the checklist items to show testers.
 The test type is `.feature` or `.release`.
 
 ```swift
-import TestJuiceSDK
+import FeatureBerrySDK
 import UIKit
 
 final class FeedbackViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        guard let apiKey = TestJuiceAppConfiguration.apiKey() else {
+        guard let apiKey = FeatureBerryAppConfiguration.apiKey() else {
             assertionFailure("Missing SDKAPIKey in Info.plist; see Config.template.xcconfig")
             return
         }
 
-        TestJuiceSessionManager.shared.configure(
+        FeatureBerrySessionManager.shared.configure(
             apiKey: apiKey,
             testType: .feature,
             codeword: "YOUR_CODEWORD",
@@ -76,7 +76,7 @@ final class FeedbackViewController: UIViewController {
             ]
         )
 
-        TestJuiceSessionManager.shared.startSession(presentingFrom: self)
+        FeatureBerrySessionManager.shared.startSession(presentingFrom: self)
     }
 }
 ```
@@ -90,7 +90,7 @@ Masks follow their views as the layout changes and are removed when recording
 stops.
 
 ```swift
-let sessionManager = TestJuiceSessionManager.shared
+let sessionManager = FeatureBerrySessionManager.shared
 sessionManager.registerPrivacyMask(for: emailTextField)
 sessionManager.startSession(presentingFrom: self)
 ```
@@ -120,8 +120,8 @@ session menu.
 ## Checklist items
 
 Checklist items are provided statically through the `checklistItems` argument of
-`TestJuiceSessionManager.shared.configure(...)`. They are **not** pulled
-dynamically from the TestJuice API. Each item is shown to the tester as a tick
+`FeatureBerrySessionManager.shared.configure(...)`. They are **not** pulled
+dynamically from the FeatureBerry API. Each item is shown to the tester as a tick
 box, and the item text is submitted as the checked item identifier.
 
 To tick an item automatically when the corresponding action completes in your
@@ -132,7 +132,7 @@ to `configure`:
 ```swift
 // checklistItems: ["Sign in", "Add a dog walk", "Review walk history"]
 func didAddDogWalk() {
-    TestJuiceSessionManager.shared.tickChecklistItem(at: 1)
+    FeatureBerrySessionManager.shared.tickChecklistItem(at: 1)
 }
 ```
 
@@ -165,14 +165,14 @@ is enabled for the host app's target and its App ID.
 
 On submit, the SDK will post results to:
 
-- `POST https://portal.testjuice.com/api/sdk/v1/tests/results`
+- `POST https://portal.featureberry.com/api/sdk/v1/tests/results`
 
 Payload (JSON) includes test type, codeword, tester email, optional outcome,
 optional feedback, and checked checklist keys. The response contains a
 `testRecordId`. The session recording, when available, is then uploaded as
 `multipart/form-data` in a field named `video` to:
 
-- `POST https://portal.testjuice.com/api/sdk/v1/tests/{testRecordId}/video`
+- `POST https://portal.featureberry.com/api/sdk/v1/tests/{testRecordId}/video`
 
 If submission or the video upload fails, the SDK shows an alert with the full
 error text and a **Copy to clipboard** button. Note that a failed video upload

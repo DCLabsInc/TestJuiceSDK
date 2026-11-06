@@ -3,22 +3,22 @@ import Foundation
 import FoundationNetworking
 #endif
 
-/// Configuration for talking to the TestJuice REST API.
-public struct TestJuiceConfiguration: Sendable {
-    /// Use the portal host: testjuice.com redirects to it, which breaks POST requests.
-    public static let defaultBaseURL = URL(string: "https://portal.testjuice.com")!
+/// Configuration for talking to the FeatureBerry REST API.
+public struct FeatureBerryConfiguration: Sendable {
+    /// Use the portal host: featureberry.com redirects to it, which breaks POST requests.
+    public static let defaultBaseURL = URL(string: "https://portal.featureberry.com")!
 
-    /// "iOS SDK API key" generated in TestJuice Settings.
+    /// "iOS SDK API key" generated in FeatureBerry Settings.
     public var apiKey: String
     public var baseURL: URL
 
-    public init(apiKey: String, baseURL: URL = TestJuiceConfiguration.defaultBaseURL) {
+    public init(apiKey: String, baseURL: URL = FeatureBerryConfiguration.defaultBaseURL) {
         self.apiKey = apiKey
         self.baseURL = baseURL
     }
 }
 
-public enum TestJuiceTestType: String, Codable, Sendable {
+public enum FeatureBerryTestType: String, Codable, Sendable {
     case feature = "Feature"
     case release = "Release"
 }
@@ -46,7 +46,7 @@ public struct SdkRewardInfo: Decodable, Sendable {
     }
 }
 
-public struct TestJuiceTest: Decodable, Sendable {
+public struct FeatureBerryTest: Decodable, Sendable {
     public struct ChecklistItem: Decodable, Sendable {
         public let key: String
         public let label: String
@@ -60,8 +60,8 @@ public struct TestJuiceTest: Decodable, Sendable {
     public let reward: SdkRewardInfo?
 }
 
-public struct TestJuiceTestResult: Encodable, Sendable {
-    public let testType: TestJuiceTestType
+public struct FeatureBerryTestResult: Encodable, Sendable {
+    public let testType: FeatureBerryTestType
     public let codeword: String
     public let testerEmail: String
     public let outcome: String?
@@ -107,7 +107,7 @@ public struct TestJuiceTestResult: Encodable, Sendable {
         case screenSize
     }
 
-    var telemetry: TestJuiceDeviceTelemetry? = nil
+    var telemetry: FeatureBerryDeviceTelemetry? = nil
 }
 
 /// Error body returned by the API: `{ "error": "<code>", "message": "<text>" }`.
@@ -116,7 +116,7 @@ public struct APIErrorBody: Codable, Sendable, Equatable {
     public let message: String?
 }
 
-public enum TestJuiceError: Error, LocalizedError, Sendable, Equatable {
+public enum FeatureBerryError: Error, LocalizedError, Sendable, Equatable {
     case invalidURL
     case api(status: Int, body: APIErrorBody)
     case badStatus(Int)
@@ -155,8 +155,8 @@ public enum TestJuiceError: Error, LocalizedError, Sendable, Equatable {
     }
 }
 
-extension TestJuiceError {
-    static func make(statusCode: Int, responseBody: Data) -> TestJuiceError {
+extension FeatureBerryError {
+    static func make(statusCode: Int, responseBody: Data) -> FeatureBerryError {
         if let apiError = try? JSONDecoder().decode(APIErrorBody.self, from: responseBody) {
             return .api(status: statusCode, body: apiError)
         }
@@ -167,13 +167,13 @@ extension TestJuiceError {
 }
 
 /// Minimal client for `/api/sdk/v1`. JSON is camelCase in both directions.
-public struct TestJuiceClient: Sendable {
+public struct FeatureBerryClient: Sendable {
     public static let apiPath = "/api/sdk/v1"
 
-    public let configuration: TestJuiceConfiguration
+    public let configuration: FeatureBerryConfiguration
     private let session: URLSession
 
-    public init(configuration: TestJuiceConfiguration, session: URLSession = .shared) {
+    public init(configuration: FeatureBerryConfiguration, session: URLSession = .shared) {
         self.configuration = configuration
         self.session = session
     }
@@ -181,13 +181,13 @@ public struct TestJuiceClient: Sendable {
     func makeRequest(method: String, path: String, body: Data? = nil) throws -> URLRequest {
         let trimmed = path.hasPrefix("/") ? path : "/" + path
         guard var components = URLComponents(url: configuration.baseURL, resolvingAgainstBaseURL: false) else {
-            throw TestJuiceError.invalidURL
+            throw FeatureBerryError.invalidURL
         }
         let basePath = components.path.hasSuffix("/") ? String(components.path.dropLast()) : components.path
         let queryStart = trimmed.firstIndex(of: "?")
         components.path = basePath + Self.apiPath + (queryStart.map { String(trimmed[..<$0]) } ?? trimmed)
         components.percentEncodedQuery = queryStart.map { String(trimmed[trimmed.index(after: $0)...]) }
-        guard let url = components.url else { throw TestJuiceError.invalidURL }
+        guard let url = components.url else { throw FeatureBerryError.invalidURL }
 
         var request = URLRequest(url: url)
         request.httpMethod = method
@@ -206,8 +206,8 @@ public struct TestJuiceClient: Sendable {
     }
 
     func makeResultRequest(
-        _ result: TestJuiceTestResult,
-        telemetry: TestJuiceDeviceTelemetry? = nil
+        _ result: FeatureBerryTestResult,
+        telemetry: FeatureBerryDeviceTelemetry? = nil
     ) throws -> URLRequest {
         try makeRequest(
             method: "POST",
@@ -218,7 +218,7 @@ public struct TestJuiceClient: Sendable {
     func send(request: URLRequest) async throws -> Data {
         let (data, response) = try await session.data(for: request)
         if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-            throw TestJuiceError.make(statusCode: http.statusCode, responseBody: data)
+            throw FeatureBerryError.make(statusCode: http.statusCode, responseBody: data)
         }
         return data
     }
@@ -240,7 +240,7 @@ public struct TestJuiceClient: Sendable {
         let reward: SdkRewardInfo?
     }
 
-    func makeDefinitionRequest(testType: TestJuiceTestType, codeword: String) throws -> URLRequest {
+    func makeDefinitionRequest(testType: FeatureBerryTestType, codeword: String) throws -> URLRequest {
         var allowed = CharacterSet.urlQueryAllowed
         allowed.remove(charactersIn: "&=+#")
         let encoded = codeword.addingPercentEncoding(withAllowedCharacters: allowed) ?? codeword
@@ -248,23 +248,23 @@ public struct TestJuiceClient: Sendable {
     }
 
     /// Whether the backend allows Pass/Fail buttons for this test (`showPassFailButtons`).
-    public func fetchShowPassFailButtons(testType: TestJuiceTestType, codeword: String) async throws -> Bool {
+    public func fetchShowPassFailButtons(testType: FeatureBerryTestType, codeword: String) async throws -> Bool {
         try await fetchTestDefinition(testType: testType, codeword: codeword).showPassFailButtons
     }
 
-    func fetchTestDefinition(testType: TestJuiceTestType, codeword: String) async throws -> TestDefinitionResponse {
+    func fetchTestDefinition(testType: FeatureBerryTestType, codeword: String) async throws -> TestDefinitionResponse {
         let data = try await send(request: makeDefinitionRequest(testType: testType, codeword: codeword))
         return try JSONDecoder().decode(TestDefinitionResponse.self, from: data)
     }
 
     func makeLiveAppRequest(codeword: String) throws -> URLRequest {
         guard var components = URLComponents(url: configuration.baseURL, resolvingAgainstBaseURL: false) else {
-            throw TestJuiceError.invalidURL
+            throw FeatureBerryError.invalidURL
         }
         let basePath = components.path.hasSuffix("/") ? String(components.path.dropLast()) : components.path
         components.path = basePath + "/api/testnowlive"
         components.queryItems = [URLQueryItem(name: "codeword", value: codeword)]
-        guard let url = components.url else { throw TestJuiceError.invalidURL }
+        guard let url = components.url else { throw FeatureBerryError.invalidURL }
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue(configuration.apiKey, forHTTPHeaderField: "X-Api-Key")
@@ -299,15 +299,15 @@ public struct TestJuiceClient: Sendable {
 
     func makeVideoRequestURL(testRecordId: Int) throws -> URL {
         guard let url = try makeRequest(method: "POST", path: "/tests/\(testRecordId)/video").url else {
-            throw TestJuiceError.invalidURL
+            throw FeatureBerryError.invalidURL
         }
         return url
     }
 
     /// Submits the result as JSON, then attaches the recording to the created test record.
     public func submitTestResult(
-        _ result: TestJuiceTestResult,
-        telemetry: TestJuiceDeviceTelemetry? = nil,
+        _ result: FeatureBerryTestResult,
+        telemetry: FeatureBerryDeviceTelemetry? = nil,
         videoURL: URL? = nil,
         crashLogURL: URL? = nil
     ) async throws {
@@ -331,8 +331,8 @@ public struct TestJuiceClient: Sendable {
     }
 }
 
-private extension TestJuiceTestResult {
-    func withTelemetry(_ telemetry: TestJuiceDeviceTelemetry?) -> Self {
+private extension FeatureBerryTestResult {
+    func withTelemetry(_ telemetry: FeatureBerryDeviceTelemetry?) -> Self {
         var result = self
         result.telemetry = telemetry
         return result

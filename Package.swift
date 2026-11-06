@@ -2,15 +2,15 @@
 import PackageDescription
 
 let package = Package(
-    name: "TestJuiceSDK",
+    name: "FeatureBerrySDK",
     platforms: [.iOS("18.0")],
     products: [
-        .library(name: "TestJuiceSDK", targets: ["TestJuiceSDK"])
+        .library(name: "FeatureBerrySDK", targets: ["FeatureBerrySDK"])
     ],
     targets: [
         .target(
-            name: "TestJuiceSDK",
+            name: "FeatureBerrySDK",
             resources: [.process("Resources")]),
-        .testTarget(name: "TestJuiceSDKTests", dependencies: ["TestJuiceSDK"])
+        .testTarget(name: "FeatureBerrySDKTests", dependencies: ["FeatureBerrySDK"])
     ]
 )
