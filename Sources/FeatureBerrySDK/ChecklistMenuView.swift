@@ -45,7 +45,7 @@ private struct RewardBanner: View {
 private struct TestBarberBrand: View {
     var body: some View {
         HStack(spacing: 8) {
-            Text("🍊 FeatureBerry")
+            Text("🫐 FeatureBerry")
                 .font(.headline)
                 .foregroundStyle(.primary)
         }
