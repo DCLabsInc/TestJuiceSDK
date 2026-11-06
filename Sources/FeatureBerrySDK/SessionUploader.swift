@@ -38,7 +38,7 @@ struct SessionUploader: Sendable {
         }
     }
 
-    static func error(statusCode: Int, responseBody: Data) -> TestJuiceError {
-        TestJuiceError.make(statusCode: statusCode, responseBody: responseBody)
+    static func error(statusCode: Int, responseBody: Data) -> FeatureBerryError {
+        FeatureBerryError.make(statusCode: statusCode, responseBody: responseBody)
     }
 }

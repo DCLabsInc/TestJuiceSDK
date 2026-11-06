@@ -1,6 +1,6 @@
 import Foundation
 
-public struct TestJuiceDeviceTelemetry: Encodable, Sendable, Equatable {
+public struct FeatureBerryDeviceTelemetry: Encodable, Sendable, Equatable {
     public let deviceModel: String?
     public let osVersion: String?
     public let networkType: String?
@@ -58,7 +58,7 @@ public struct TestJuiceDeviceTelemetry: Encodable, Sendable, Equatable {
 import Network
 import UIKit
 
-extension TestJuiceDeviceTelemetry {
+extension FeatureBerryDeviceTelemetry {
     @MainActor
     static func collect() async -> Self {
         let device = UIDevice.current
@@ -104,7 +104,7 @@ extension TestJuiceDeviceTelemetry {
                 monitor.cancel()
                 continuation.resume(returning: networkType)
             }
-            monitor.start(queue: DispatchQueue(label: "com.testjuice.sdk.network-monitor"))
+            monitor.start(queue: DispatchQueue(label: "com.featureberry.sdk.network-monitor"))
         }
     }
 }

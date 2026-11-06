@@ -122,7 +122,7 @@ final class PrivacyMaskOverlay {
 }
 
 @MainActor
-public extension TestJuiceSessionManager {
+public extension FeatureBerrySessionManager {
     /// Registers a view whose contents should be covered during session recording.
     /// The view is covered by a black mask on screen and in the recorded video.
     func registerPrivacyMask(for view: UIView) {

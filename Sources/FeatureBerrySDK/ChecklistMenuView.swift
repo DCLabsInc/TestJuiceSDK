@@ -45,7 +45,7 @@ private struct RewardBanner: View {
 private struct TestBarberBrand: View {
     var body: some View {
         HStack(spacing: 8) {
-            Text("🍊 TestJuice")
+            Text("🍊 FeatureBerry")
                 .font(.headline)
                 .foregroundStyle(.primary)
         }
@@ -107,10 +107,10 @@ struct SessionConfirmationView: View {
 }
 
 struct ChecklistMenuView: View {
-    private static let appleEmailDefaultsKey = "com.testjuice.sdk.testerEmail"
+    private static let appleEmailDefaultsKey = "com.featureberry.sdk.testerEmail"
 
-    let test: TestJuiceTest
-    @ObservedObject var sessionManager: TestJuiceSessionManager
+    let test: FeatureBerryTest
+    @ObservedObject var sessionManager: FeatureBerrySessionManager
     var initialFeedback = ""
     let onSubmit: (String?, String, String, [String]) async throws -> Void
 
@@ -126,8 +126,8 @@ struct ChecklistMenuView: View {
     @FocusState private var feedbackIsFocused: Bool
 
     init(
-        test: TestJuiceTest,
-        sessionManager: TestJuiceSessionManager,
+        test: FeatureBerryTest,
+        sessionManager: FeatureBerrySessionManager,
         initialFeedback: String = "",
         onSubmit: @escaping (String?, String, String, [String]) async throws -> Void
     ) {
@@ -330,7 +330,7 @@ struct ChecklistMenuView: View {
                     test.checklist.filter { sessionManager.checkedChecklistItemKeys.contains($0.key) }.map(\.key))
             } catch {
                 submissionError = error.localizedDescription
-                errorDetails = (error as? TestJuiceError)?.detailedDescription ?? String(describing: error)
+                errorDetails = (error as? FeatureBerryError)?.detailedDescription ?? String(describing: error)
                 showingErrorDetails = true
                 isSubmitting = false
             }
