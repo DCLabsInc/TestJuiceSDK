@@ -233,8 +233,7 @@ private struct FeatureBoardView: View {
     }
 
     private func isClosed(_ feature: FeatureBerryRoadmapFeature) -> Bool {
-        let value = [feature.status, feature.horizon].compactMap { $0 }.joined(separator: " ").lowercased()
-        return value.contains("closed") || value.contains("shipped")
+        feature.isClosed
     }
 
     private func webURL(_ rawValue: String?) -> URL? {

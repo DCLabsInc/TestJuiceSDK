@@ -102,4 +102,63 @@ import Testing
         #expect(response.features[0].voteURL == "https://portal.featureberry.com/api/sdk/feature/42/vote")
         #expect(response.profileURL == "https://portal.featureberry.com/profile")
     }
+
+    @Test func roadmapDecodesBuildBuggyResponse() throws {
+        let json = """
+        {
+          "appId": 1,
+          "appName": "StepDog",
+          "profileUrl": "https://portal.featureberry.com/profile",
+          "features": [{
+            "id": 42,
+            "title": "Share buttons",
+            "description": "Share",
+            "priority": 2,
+            "status": 2,
+            "statusLabel": "Done",
+            "horizon": 3,
+            "voteCount": 5,
+            "featureDetailURL": "https://portal.featureberry.com/feature/42",
+            "profileURL": "https://portal.featureberry.com/profile"
+          }]
+        }
+        """
+        let response = try JSONDecoder().decode(FeatureBerryRoadmapResponse.self, from: Data(json.utf8))
+        let feature = try #require(response.features.first)
+        #expect(feature.status == "Done")
+        #expect(feature.horizon == "Shipped")
+        #expect(feature.isClosed)
+        #expect(feature.detailURL == "https://portal.featureberry.com/feature/42")
+        #expect(response.profileURL == "https://portal.featureberry.com/profile")
+        #expect(feature.voteURL == nil)
+    }
+
+    @Test(arguments: [
+        (0, "Future"), (1, "UpNext"), (2, "InProgress"), (3, "Shipped"), (4, "Testing")
+    ])
+    func roadmapDecodesNumericHorizons(value: Int, expected: String) throws {
+        let json = #"{"id":1,"title":"Feature","status":0,"horizon":\#(value)}"#
+        let feature = try JSONDecoder().decode(FeatureBerryRoadmapFeature.self, from: Data(json.utf8))
+        #expect(feature.horizon == expected)
+        #expect(feature.isClosed == (value == 3))
+    }
+
+    @Test func roadmapRejectsUnknownNumericStatus() {
+        let json = #"{"id":1,"title":"Feature","status":9}"#
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(FeatureBerryRoadmapFeature.self, from: Data(json.utf8))
+        }
+    }
+
+    @Test func roadmapDecodesDirectLinksAndDoneWithoutHorizon() throws {
+        let json = """
+        {"features":[{"id":1,"title":"Feature","status":"Done","horizon":null,
+        "featureDetailUrl":"/feature/1"}],"profileURL":"/profile"}
+        """
+        let response = try JSONDecoder().decode(FeatureBerryRoadmapResponse.self, from: Data(json.utf8))
+        let feature = try #require(response.features.first)
+        #expect(feature.isClosed)
+        #expect(feature.detailURL == "/feature/1")
+        #expect(response.profileURL == "/profile")
+    }
 }
