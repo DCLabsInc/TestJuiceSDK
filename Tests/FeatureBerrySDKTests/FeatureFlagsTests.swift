@@ -1,6 +1,9 @@
 import Foundation
 import Testing
 @testable import FeatureBerrySDK
+#if canImport(UIKit) && canImport(ReplayKit)
+import UIKit
+#endif
 
 @Suite struct FeatureFlagClientTests {
     @Test func horizonRequestUsesExpectedEndpointAndQueryParameters() throws {
@@ -73,6 +76,28 @@ import Testing
 }
 
 @Suite @MainActor struct FeatureFlagEvaluationTests {
+    #if canImport(UIKit) && canImport(ReplayKit)
+    @Test func startingConfiguredSessionEnablesTestingMode() {
+        FeatureBerry.onUserIsTestingChanged = nil
+        FeatureBerry.userIsTesting = false
+        var changes: [Bool] = []
+        FeatureBerry.onUserIsTestingChanged = { changes.append($0) }
+        defer {
+            FeatureBerry.onUserIsTestingChanged = nil
+            FeatureBerry.userIsTesting = false
+        }
+
+        let manager = FeatureBerrySessionManager()
+        manager.startSession(presentingFrom: UIViewController())
+        #expect(!FeatureBerry.userIsTesting)
+
+        manager.configure(apiKey: "sdk-key", testType: .feature, codeword: "test", checklistItems: [])
+        manager.startSession(presentingFrom: UIViewController())
+        #expect(FeatureBerry.userIsTesting)
+        #expect(changes == [true])
+    }
+    #endif
+
     @Test func liveFlagsPassOnlyForShippedFeatures() {
         FeatureBerry.cacheHorizon(.shipped, for: "live")
         FeatureBerry.cacheHorizon(.testing, for: "testing")
