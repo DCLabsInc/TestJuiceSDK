@@ -76,23 +76,43 @@ import Testing
     @Test func liveFlagsPassOnlyForShippedFeatures() {
         FeatureBerry.cacheHorizon(.shipped, for: "live")
         FeatureBerry.cacheHorizon(.testing, for: "testing")
-        FeatureBerry.setTestingSessionEnabled(false)
+        FeatureBerry.userIsTesting = false
 
         #expect(FeatureBerry.Feature("live").Live)
         #expect(!FeatureBerry.Feature("testing").Live)
     }
 
-    @Test func testingFlagsRequireAnEnabledTestingSession() {
+    @Test func testingFlagsReflectHorizonIndependentlyOfUserOptIn() {
         FeatureBerry.cacheHorizon(.testing, for: "testing")
-        FeatureBerry.setTestingSessionEnabled(false)
-        #expect(!FeatureBerry.Feature("testing").Testing)
-
-        FeatureBerry.setTestingSessionEnabled(true)
+        FeatureBerry.userIsTesting = false
         #expect(FeatureBerry.Feature("testing").Testing)
+        #expect(!(FeatureBerry.Feature("testing").Testing && FeatureBerry.userIsTesting))
+
+        FeatureBerry.userIsTesting = true
+        #expect(FeatureBerry.Feature("testing").Testing)
+        #expect(FeatureBerry.Feature("testing").Testing && FeatureBerry.userIsTesting)
 
         FeatureBerry.cacheHorizon(.shipped, for: "shipped")
         #expect(!FeatureBerry.Feature("shipped").Testing)
-        FeatureBerry.setTestingSessionEnabled(false)
+        FeatureBerry.userIsTesting = false
+    }
+
+    @Test func testingModeChangesNotifyTheHostOncePerChange() {
+        FeatureBerry.onUserIsTestingChanged = nil
+        FeatureBerry.userIsTesting = false
+        var changes: [Bool] = []
+        FeatureBerry.onUserIsTestingChanged = { changes.append($0) }
+        defer {
+            FeatureBerry.onUserIsTestingChanged = nil
+            FeatureBerry.userIsTesting = false
+        }
+
+        FeatureBerry.userIsTesting = true
+        #expect(FeatureBerry.isTestingSessionEnabled)
+        FeatureBerry.userIsTesting = true
+        FeatureBerry.userIsTesting = false
+        #expect(!FeatureBerry.isTestingSessionEnabled)
+        #expect(changes == [true, false])
     }
 
     @Test func expiredHorizonCacheDoesNotEnableAFlag() {

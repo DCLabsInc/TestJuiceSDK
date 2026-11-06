@@ -155,7 +155,19 @@ public enum FeatureBerry {
     private static var pendingHorizonRequests = Set<String>()
     private static var features: CachedFeatures?
     private static var backgroundObserver: NSObjectProtocol?
-    public private(set) static var isTestingSessionEnabled = false
+    /// Called on the main actor when the user's testing mode changes.
+    public static var onUserIsTestingChanged: ((Bool) -> Void)?
+
+    /// Whether the user has opted in to testing features for this app session.
+    public static var userIsTesting = false {
+        didSet {
+            if userIsTesting != oldValue {
+                onUserIsTestingChanged?(userIsTesting)
+            }
+        }
+    }
+
+    public static var isTestingSessionEnabled: Bool { userIsTesting }
 
     /// Configure feature flags with the app's SDK API key and FeatureBerry short name.
     /// Feature statuses are fetched as needed and cached for seven minutes.
@@ -167,7 +179,7 @@ public enum FeatureBerry {
         horizons.removeAll()
         pendingHorizonRequests.removeAll()
         features = nil
-        isTestingSessionEnabled = false
+        userIsTesting = false
         client = FeatureBerryFeatureClient(apiKey: apiKey, appShortName: appShortName, baseURL: baseURL)
         observeBackgrounding()
         Task { try? await refreshFeatures() }
@@ -222,10 +234,6 @@ public enum FeatureBerry {
         return cached.value
     }
 
-    static func setTestingSessionEnabled(_ enabled: Bool) {
-        isTestingSessionEnabled = enabled
-    }
-
     static func cacheHorizon(_ horizon: FeatureBerryHorizon, for codeword: String, fetchedAt: Date = Date()) {
         horizons[codeword] = CachedHorizon(value: horizon, fetchedAt: fetchedAt)
     }
@@ -238,7 +246,7 @@ public enum FeatureBerry {
             object: nil,
             queue: .main
         ) { _ in
-            Task { @MainActor in isTestingSessionEnabled = false }
+            Task { @MainActor in userIsTesting = false }
         }
         #endif
     }
@@ -253,7 +261,7 @@ public struct FeatureBerryFeatureFlag {
     }
 
     public var Testing: Bool {
-        FeatureBerry.isTestingSessionEnabled && FeatureBerry.cachedHorizon(for: codeword) == .testing
+        FeatureBerry.cachedHorizon(for: codeword) == .testing
     }
 }
 
@@ -272,7 +280,7 @@ public struct FeatureBerryTestingSettings: View {
 
     public var body: some View {
         Button(title) {
-            FeatureBerry.setTestingSessionEnabled(true)
+            FeatureBerry.userIsTesting = true
         }
         .tint(tint)
     }
