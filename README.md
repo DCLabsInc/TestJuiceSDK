@@ -1,7 +1,7 @@
 # FeatureBerry SDK
 
-FeatureBerrySDK lets an iOS app collect a screen recording, checklist status, and
-user feedback for a test session so it will all appear in the FeatureBerry portal.
+FeatureBerrySDK provides a native Feature Board for your app. It can also collect
+screen recordings, checklist status, and tester feedback for optional test sessions.
 
 ## Requirements
 
@@ -19,13 +19,13 @@ https://github.com/DCLabsInc/featureberry-ios-sdk
 Select the `FeatureBerrySDK` library for your app target.
 
 > [!IMPORTANT]
-> **Sign in with Apple is required.** Enable the **Sign in with Apple**
-> capability on your app target in Xcode (and its App ID). Swift Package Manager
-> libraries cannot add this entitlement for you.
+> Enable the **Sign in with Apple** capability on your app target (and its App ID)
+> if you enable voting, feature suggestions, or test sessions. Swift Package
+> Manager libraries cannot add this entitlement for you.
 
 > [!IMPORTANT]
-> **Camera roll access is required to save the recording.** Add
-> `NSPhotoLibraryAddUsageDescription` to your app's Info.plist (for example,
+> **Test-session recordings require camera roll access if you want to save them.**
+> Add `NSPhotoLibraryAddUsageDescription` to your app's Info.plist (for example,
 > "Save your feedback session recording to Photos"). The SDK asks for add-only
 > Photos permission and saves the video to the camera roll after a successful
 > submission.
@@ -38,13 +38,48 @@ Other Info.plist privacy keys depend on which features you enable:
 | `NSMicrophoneUsageDescription` | Only if microphone recording is enabled (the SDK currently does not record the microphone). |
 | `NSCameraUsageDescription` | Only if camera preview/capture is enabled (the SDK currently does not use the camera). |
 
-> [!NOTE]
-> Call `startSession(presentingFrom:)` on the main thread. If called from an early
-> lifecycle hook such as SwiftUI `onAppear`, the SDK waits briefly (about 2.5
-> seconds at most) for a foreground-active scene and a presenter attached to a
-> window before presenting.
+## Show the Feature Board
 
-## Configure and start a session
+The Feature Board is the primary use of this SDK. Add its button to any SwiftUI
+view, including a list row or toolbar. Tapping it presents a native sheet with the
+roadmap, voting, feature suggestions, and linked detail/profile pages:
+
+```swift
+import FeatureBerrySDK
+import SwiftUI
+
+struct SettingsView: View {
+    var body: some View {
+        List {
+            if let apiKey = FeatureBerryAppConfiguration.apiKey() {
+                FeatureBerryFeatureBoardButton(appId: 1, apiKey: apiKey)
+            }
+        }
+    }
+}
+```
+
+For UIKit apps, present it from a view controller (for example, in a table
+selection handler):
+
+```swift
+FeatureBerryFeatureBoard.present(from: self, appId: 1, apiKey: apiKey)
+```
+
+Provide the public SDK API key generated for your app. Never include a privileged
+server secret in an iOS app. The board fetches roadmap features from the SDK API;
+voting and suggestions prompt for Sign in with Apple when needed.
+
+Using the Feature Board alone does **not** initialize a test session or start
+screen recording. Do not call `FeatureBerrySessionManager.configure(...)` or
+`startSession(presentingFrom:)` unless you also want to offer testing.
+
+## Optional: configure and start a test session
+
+Call `startSession(presentingFrom:)` on the main thread. If called from an early
+lifecycle hook such as SwiftUI `onAppear`, the SDK waits briefly (about 2.5
+seconds at most) for a foreground-active scene and a presenter attached to a
+window before presenting.
 
 Configure the shared session manager before offering the session flow to users.
 Use an API key appropriate for a client app (never embed a privileged server
