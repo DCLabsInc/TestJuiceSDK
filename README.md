@@ -51,8 +51,11 @@ import SwiftUI
 struct SettingsView: View {
     var body: some View {
         List {
-            if let apiKey = FeatureBerryAppConfiguration.apiKey() {
-                FeatureBerryFeatureBoardButton(appShortName: "YOUR_APP_SHORT_NAME", apiKey: apiKey)
+            Section("Feature Requests") {
+                if let apiKey = FeatureBerryAppConfiguration.apiKey() {
+                    FeatureBerryFeatureBoardButton(appShortName: "YOUR_APP_SHORT_NAME", apiKey: apiKey)
+                    FeatureBerryTestingSettings()
+                }
             }
         }
     }
