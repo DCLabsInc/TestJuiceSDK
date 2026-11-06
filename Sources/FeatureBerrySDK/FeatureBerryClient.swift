@@ -118,6 +118,7 @@ public struct APIErrorBody: Codable, Sendable, Equatable {
 
 public enum FeatureBerryError: Error, LocalizedError, Sendable, Equatable {
     case invalidURL
+    case featureFlagsNotConfigured
     case api(status: Int, body: APIErrorBody)
     case badStatus(Int)
     case http(status: Int, text: String)
@@ -126,6 +127,8 @@ public enum FeatureBerryError: Error, LocalizedError, Sendable, Equatable {
         switch self {
         case .invalidURL:
             "The request URL is invalid."
+        case .featureFlagsNotConfigured:
+            "Feature flags have not been configured."
         case let .api(status, body):
             body.message ?? "The request failed (HTTP \(status))."
         case let .badStatus(status), let .http(status, _):
@@ -135,7 +138,7 @@ public enum FeatureBerryError: Error, LocalizedError, Sendable, Equatable {
 
     var statusCode: Int? {
         switch self {
-        case .invalidURL: nil
+        case .invalidURL, .featureFlagsNotConfigured: nil
         case let .api(status, _), let .badStatus(status), let .http(status, _): status
         }
     }
@@ -145,6 +148,8 @@ public enum FeatureBerryError: Error, LocalizedError, Sendable, Equatable {
         switch self {
         case .invalidURL:
             return "The request URL is invalid."
+        case .featureFlagsNotConfigured:
+            return "Feature flags have not been configured."
         case let .api(status, body):
             return "HTTP \(status)\nerror: \(body.error)\nmessage: \(body.message ?? "none")"
         case let .badStatus(status):

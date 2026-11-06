@@ -70,6 +70,40 @@ Provide the public SDK API key generated for your app. Never include a privilege
 server secret in an iOS app. The board fetches roadmap features from the SDK API;
 voting and suggestions prompt for Sign in with Apple when needed.
 
+## Feature flags and testing mode
+
+Configure feature flags with your SDK API key and the app's FeatureBerry short
+name. Statuses are checked through the Horizon API and cached for seven minutes;
+the app feature list is cached for twelve minutes. A flag check is synchronous,
+so a feature whose status has not been loaded yet evaluates to `false` while the
+SDK fetches it in the background.
+
+```swift
+FeatureBerry.configure(apiKey: apiKey, appShortName: "YOUR_APP_SHORT_NAME")
+
+if FeatureBerry.Feature("dark-mode").Live {
+    showDarkMode()
+}
+
+if FeatureBerry.Feature("new-checkout").Testing {
+    showNewCheckout()
+}
+```
+
+`.Live` is true for features whose Horizon status is `Shipped`. `.Testing` is true
+for `Testing` features only while a testing session is enabled. Add the provided
+SwiftUI control to your settings to let users enable that session; it resets
+automatically when the app enters the background and is not persisted across
+app launches. Its tint is customizable:
+
+```swift
+FeatureBerryTestingSettings(tint: .orange)
+```
+
+Call `FeatureBerry.refreshFeature(codeword:force:)` to explicitly refresh an
+individual status, or `FeatureBerry.refreshFeatures(force:)` to fetch the app's
+feature list.
+
 Using the Feature Board alone does **not** initialize a test session or start
 screen recording. Do not call `FeatureBerrySessionManager.configure(...)` or
 `startSession(presentingFrom:)` unless you also want to offer testing.
