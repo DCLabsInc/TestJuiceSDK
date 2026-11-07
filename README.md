@@ -137,10 +137,48 @@ from the last successfully checked version. The returned `FeatureBerryWhatsNew` 
 returns `nil` when the current app version was already checked.
 
 ```swift
-if let whatsNew = try await FeatureBerry.CheckWhatsNew(releaseCodeword: "YOUR_RELEASE_CODEWORD") {
-    showWhatsNew(newFeatures: whatsNew.newFeatures, testFeatures: whatsNew.testFeatures)
+override func viewDidLoad() {
+    super.viewDidLoad()
+
+    Task { @MainActor in
+        do {
+            guard let whatsNew = try await FeatureBerry.CheckWhatsNew(
+                releaseCodeword: "YOUR_RELEASE_CODEWORD"
+            ) else { return }
+
+            showWhatsNew(newFeatures: whatsNew.newFeatures, testFeatures: whatsNew.testFeatures)
+        } catch {
+            print("Unable to check for new features: \(error)")
+        }
+    }
+}
+
+private func showWhatsNew(
+    newFeatures: [FeatureBerryAppFeature],
+    testFeatures: [FeatureBerryAppFeature]
+) {
+    let sections = [
+        ("New features", newFeatures),
+        ("Now testing", testFeatures)
+    ].compactMap { section -> String? in
+        let (title, features) = section
+        guard !features.isEmpty else { return nil }
+        return "\(title):\n" + features.map { "• \($0.title)" }.joined(separator: "\n")
+    }
+    guard !sections.isEmpty else { return }
+
+    let alert = UIAlertController(
+        title: "What's New",
+        message: sections.joined(separator: "\n\n"),
+        preferredStyle: .alert
+    )
+    alert.addAction(UIAlertAction(title: "OK", style: .default))
+    present(alert, animated: true)
 }
 ```
+
+The presentation helper is app-specific; the SDK returns feature data but does
+not present a What's New screen.
 
 Using the Feature Board alone does **not** initialize a test session or start
 screen recording. Do not call `FeatureBerrySessionManager.configure(...)` or
