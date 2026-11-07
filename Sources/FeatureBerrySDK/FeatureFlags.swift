@@ -184,12 +184,14 @@ public enum FeatureBerry {
     public static let horizonCacheDuration: TimeInterval = 7 * 60
     public static let featuresCacheDuration: TimeInterval = 12 * 60
     private static let whatsNewVersionDefaultsKey = "com.featureberry.sdk.whatsNewVersion"
+    private static let whatsNewPresentationDefaultsKey = "com.featureberry.sdk.whatsNewPresentedVersion"
 
     static var client: FeatureBerryFeatureClient?
     private static var horizons: [String: CachedHorizon] = [:]
     private static var pendingHorizonRequests = Set<String>()
     private static var features: CachedFeatures?
-    private static var isCheckingWhatsNew = false
+    private static var isFetchingWhatsNewData = false
+    static var isPresentingWhatsNew = false
     /// Called on the main actor when the user's testing mode changes.
     public static var onUserIsTestingChanged: ((Bool) -> Void)?
 
@@ -238,16 +240,16 @@ public enum FeatureBerry {
 
     /// Fetches shipped and testing features once for each host-app bundle version.
     /// Returns `nil` when this version has already been checked.
-    public static func CheckWhatsNew(releaseCodeword: String) async throws -> FeatureBerryWhatsNew? {
+    public static func fetchWhatsNewData(releaseCodeword: String) async throws -> FeatureBerryWhatsNew? {
         guard let version = whatsNewVersion(from: Bundle.main.infoDictionary),
               shouldCheckWhatsNew(currentVersion: version, lastVersion: UserDefaults.standard.string(
                 forKey: whatsNewDefaultsKey)),
-              !isCheckingWhatsNew
+              !isFetchingWhatsNewData
         else { return nil }
         guard let client else { throw FeatureBerryError.featureFlagsNotConfigured }
 
-        isCheckingWhatsNew = true
-        defer { isCheckingWhatsNew = false }
+        isFetchingWhatsNewData = true
+        defer { isFetchingWhatsNewData = false }
         let result = try await client.fetchWhatsNew(releaseCodeword: releaseCodeword)
         UserDefaults.standard.set(version, forKey: whatsNewDefaultsKey)
         return result
@@ -272,6 +274,10 @@ public enum FeatureBerry {
 
     private static var whatsNewDefaultsKey: String {
         "\(whatsNewVersionDefaultsKey).\(Bundle.main.bundleIdentifier ?? "unknown")"
+    }
+
+    static var whatsNewPresentationKey: String {
+        "\(whatsNewPresentationDefaultsKey).\(Bundle.main.bundleIdentifier ?? "unknown")"
     }
 
     /// Fetches a feature's current Horizon status, using its seven-minute cache unless forced.

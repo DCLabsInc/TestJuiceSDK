@@ -69,6 +69,10 @@ public final class FeatureBerrySessionManager: ObservableObject {
         recoverFromCrashIfNeeded()
     }
 
+    func isConfiguredForRelease(codeword: String) -> Bool {
+        configuration?.testType == .release && configuration?.codeword == codeword
+    }
+
     func addPrivacyMaskView(_ view: UIView) {
         privacyMaskViews.removeAll { $0.view == nil }
         guard !privacyMaskViews.contains(where: { $0.view === view }) else { return }
