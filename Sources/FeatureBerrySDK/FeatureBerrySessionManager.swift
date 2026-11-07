@@ -81,6 +81,8 @@ public final class FeatureBerrySessionManager: ObservableObject {
         privacyMaskOverlay.setViews(privacyMaskViews.compactMap(\.view))
     }
 
+    var registeredPrivacyMaskViews: [UIView] { privacyMaskViews.compactMap(\.view) }
+
     // MARK: Crash recovery
 
     private func recoverFromCrashIfNeeded() {
@@ -245,13 +247,11 @@ public final class FeatureBerrySessionManager: ObservableObject {
             }
             defer { hint.hide() }
             do {
-                let maskViews = privacyMaskViews.compactMap(\.view)
-                if !maskViews.isEmpty {
-                    guard let scene = viewController.viewIfLoaded?.window?.windowScene ?? Self.activeScene() else {
-                        throw PrivacyMaskError.sceneUnavailable
-                    }
-                    privacyMaskOverlay.show(in: scene, masking: maskViews)
+                let maskViews = registeredPrivacyMaskViews
+                guard let scene = viewController.viewIfLoaded?.window?.windowScene ?? Self.activeScene() else {
+                    throw PrivacyMaskError.sceneUnavailable
                 }
+                privacyMaskOverlay.show(in: scene, masking: maskViews)
                 try await recorder.start()
             } catch {
                 privacyMaskOverlay.stop()

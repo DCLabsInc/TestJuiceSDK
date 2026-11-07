@@ -27,10 +27,6 @@ final class PrivacyMaskOverlay {
     private var displayLink: CADisplayLink?
 
     func show(in scene: UIWindowScene, masking views: [UIView]) {
-        guard !views.isEmpty else {
-            stop()
-            return
-        }
         stop()
 
         let window = UIWindow(windowScene: scene)
@@ -53,10 +49,6 @@ final class PrivacyMaskOverlay {
     }
 
     func setViews(_ views: [UIView]) {
-        guard !views.isEmpty else {
-            stop()
-            return
-        }
         guard let root = window?.rootViewController?.view else { return }
         entries.forEach { $0.mask.removeFromSuperview() }
         entries = views.map { view in

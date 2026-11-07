@@ -18,6 +18,9 @@ https://github.com/DCLabsInc/featureberry-ios-sdk
 
 Select the `FeatureBerrySDK` library for your app target.
 
+All integration examples below support iOS 18 or later. Shared SDK APIs are
+main-actor isolated: call them from the main actor in either SwiftUI or UIKit.
+
 > [!IMPORTANT]
 > Enable the **Sign in with Apple** capability on your app target (and its App ID)
 > if you enable voting, feature suggestions, or test sessions. Swift Package
@@ -54,7 +57,9 @@ struct SettingsView: View {
             Section("Feature Requests") {
                 if let apiKey = FeatureBerryAppConfiguration.apiKey() {
                     FeatureBerryFeatureBoardButton(appShortName: "YOUR_APP_SHORT_NAME", apiKey: apiKey)
-                    FeatureBerryTestingSettings()
+                    FeatureBerryTestingSettings {
+                        FeatureBerry.userIsTesting = true
+                    }
                 }
             }
         }
@@ -69,6 +74,7 @@ selection handler):
 FeatureBerryFeatureBoard.present(from: self, appShortName: "YOUR_APP_SHORT_NAME", apiKey: apiKey)
 ```
 
+Here `self` is a `UIViewController`, and `apiKey` is your public SDK API key.
 Provide the public SDK API key generated for your app. Never include a privileged
 server secret in an iOS app. The board fetches roadmap features from the SDK API;
 voting and suggestions prompt for Sign in with Apple when needed.
@@ -78,23 +84,54 @@ that require an app ID and app-specific key are not compatible.
 
 ## Feature flags and testing mode
 
-Configure feature flags with your SDK API key and the app's FeatureBerry short
+Configure feature flags once during startup with your SDK API key and the app's FeatureBerry short
 name. Statuses are checked through the Horizon API and cached for seven minutes;
 the app feature list is cached for twelve minutes. A flag check is synchronous,
 so a feature whose status has not been loaded yet evaluates to `false` while the
 SDK fetches it in the background.
 
+**SwiftUI:** Configure from your app's initialization:
+
 ```swift
-FeatureBerry.configure(apiKey: apiKey, appShortName: "YOUR_APP_SHORT_NAME")
+import FeatureBerrySDK
+import SwiftUI
 
-if FeatureBerry.Feature("dark-mode").Live {
-    showDarkMode()
-}
+@main
+struct MyApp: App {
+    init() {
+        guard let apiKey = FeatureBerryAppConfiguration.apiKey() else {
+            fatalError("Missing SDKAPIKey in Info.plist")
+        }
+        FeatureBerry.configure(apiKey: apiKey, appShortName: "YOUR_APP_SHORT_NAME")
+    }
 
-if FeatureBerry.Feature("new-checkout").LiveOrUserIsTesting {
-    showNewCheckout()
+    var body: some Scene {
+        WindowGroup { ContentView() }
+    }
 }
 ```
+
+**UIKit:** Configure in your app delegate's launch method:
+
+```swift
+import FeatureBerrySDK
+import UIKit
+
+func application(
+    _ application: UIApplication,
+    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+) -> Bool {
+    guard let apiKey = FeatureBerryAppConfiguration.apiKey() else {
+        print("Missing SDKAPIKey in Info.plist")
+        return false
+    }
+    FeatureBerry.configure(apiKey: apiKey, appShortName: "YOUR_APP_SHORT_NAME")
+    return true
+}
+```
+
+Add the UIKit method inside your `AppDelegate`. Both examples configure flags
+before using flags or What's New; session configuration is separate.
 
 `.Live` is true when a feature's Horizon status is `Shipped`; `.Testing` is true
 when its status is `Testing`, regardless of the user's opt-in. `.LiveOrUserIsTesting`
@@ -110,18 +147,73 @@ FeatureBerryTestingSettings(tint: .pink) {
 }
 ```
 
-Set `FeatureBerry.onUserIsTestingChanged` to refresh your app's current view when
-testing mode changes. The callback runs on the main actor and
-receives the new value; assigning the same value again does not call it.
-For example, in a view controller:
+For UIKit, enable testing from a button action and refresh the view explicitly:
 
 ```swift
-FeatureBerry.onUserIsTestingChanged = { [weak self] _ in
-    self?.updateFeatureViews()
+@IBAction private func enableTesting(_ sender: UIButton) {
+    FeatureBerry.userIsTesting = true
+    updateFeatureViews()
+}
+
+private func updateFeatureViews() {
+    darkModeButton.isHidden = !FeatureBerry.Feature("dark-mode").Live
+    checkoutButton.isHidden = !FeatureBerry.Feature("new-checkout").LiveOrUserIsTesting
 }
 ```
 
-Clear the callback when it is no longer needed.
+The buttons are outlets in your view controller. Since an uncached status
+initially evaluates to `false`, fetch statuses before updating the UI:
+
+```swift
+Task { @MainActor in
+    do {
+        try await FeatureBerry.refreshFeature(codeword: "dark-mode")
+        try await FeatureBerry.refreshFeature(codeword: "new-checkout")
+        updateFeatureViews()
+    } catch {
+        print("Unable to refresh features: \(error)")
+    }
+}
+```
+
+In SwiftUI, keep a local value for the UI and update it after loading the status
+or changing testing mode:
+
+```swift
+struct CheckoutFeatureView: View {
+    @State private var showCheckout = false
+
+    var body: some View {
+        VStack {
+            if showCheckout {
+                Text("New checkout is available")
+            }
+            FeatureBerryTestingSettings {
+                FeatureBerry.userIsTesting = true
+                updateFeature()
+            }
+        }
+        .task {
+            do {
+                try await FeatureBerry.refreshFeature(codeword: "new-checkout")
+                updateFeature()
+            } catch {
+                print("Unable to refresh feature: \(error)")
+            }
+        }
+    }
+
+    @MainActor private func updateFeature() {
+        showCheckout = FeatureBerry.Feature("new-checkout").LiveOrUserIsTesting
+    }
+}
+```
+
+If testing mode can change elsewhere, use `FeatureBerry.onUserIsTestingChanged`
+to refresh the appropriate UI. It is a single, app-wide callback on the main
+actor; assigning the same value again does not call it. Clear or replace it
+when no longer needed. Flag status changes themselves do not automatically
+notify SwiftUI or UIKit; update the UI after an explicit refresh.
 
 Call `FeatureBerry.refreshFeature(codeword:force:)` to explicitly refresh an
 individual status, or `FeatureBerry.refreshFeatures(force:)` to fetch the app's
@@ -136,9 +228,11 @@ from the last successfully checked version. The returned `FeatureBerryWhatsNew` 
 `newFeatures`, `testFeatures`, and the release codeword's `releaseHorizon`; it
 returns `nil` when the current app version was already checked.
 
+**UIKit:** Check from a view controller after it is visible and ready to present:
+
 ```swift
-override func viewDidLoad() {
-    super.viewDidLoad()
+override func viewDidAppear(_ animated: Bool) {
+    super.viewDidAppear(animated)
 
     Task { @MainActor in
         do {
@@ -177,8 +271,51 @@ private func showWhatsNew(
 }
 ```
 
+**SwiftUI:** Check from a visible view and present the returned data in a sheet:
+
+```swift
+struct WhatsNewHost: View {
+    @State private var whatsNew: FeatureBerryWhatsNew?
+    @State private var showWhatsNew = false
+
+    var body: some View {
+        Text("Welcome")
+            .task {
+                do {
+                    if let result = try await FeatureBerry.CheckWhatsNew(
+                        releaseCodeword: "YOUR_RELEASE_CODEWORD"
+                    ) {
+                        whatsNew = result
+                        showWhatsNew = !result.newFeatures.isEmpty || !result.testFeatures.isEmpty
+                    }
+                } catch {
+                    print("Unable to check for new features: \(error)")
+                }
+            }
+            .sheet(isPresented: $showWhatsNew) {
+                if let result = whatsNew {
+                    List {
+                        Section("New features") {
+                            ForEach(result.newFeatures) { feature in
+                                Text(feature.title)
+                            }
+                        }
+                        Section("Now testing") {
+                            ForEach(result.testFeatures) { feature in
+                                Text(feature.title)
+                            }
+                        }
+                    }
+                }
+            }
+    }
+}
+```
+
 The presentation helper is app-specific; the SDK returns feature data but does
-not present a What's New screen.
+not present a What's New screen. A successful check is recorded immediately,
+even if the app does not show the result, so check only when the UI is ready to
+present it. `nil` also covers a missing bundle version or a check already in progress.
 
 Using the Feature Board alone does **not** initialize a test session or start
 screen recording. Do not call `FeatureBerrySessionManager.configure(...)` or
@@ -186,17 +323,18 @@ screen recording. Do not call `FeatureBerrySessionManager.configure(...)` or
 
 ## Optional: configure and start a test session
 
-Call `startSession(presentingFrom:)` on the main thread. If called from an early
-lifecycle hook such as SwiftUI `onAppear`, the SDK waits briefly (about 2.5
-seconds at most) for a foreground-active scene and a presenter attached to a
-window before presenting. Call it again after a session completes to run another
-test; shaking the device does not start a session.
+Use the main actor to start a session. The SDK waits briefly (about 2.5 seconds
+at most) for a foreground-active scene and a presenter attached to a window.
+Start again after a session completes to run another test; shaking the device
+does not start a session.
 
 Configure the shared session manager before offering the session flow to users.
 Use an API key appropriate for a client app (never embed a privileged server
 secret), and provide the test type and codeword supplied by FeatureBerry,
 along with the checklist items to show testers.
 The test type is `.feature` or `.release`.
+
+**UIKit:** Configure when your app is ready, then start from a visible view controller:
 
 ```swift
 import FeatureBerrySDK
@@ -222,10 +360,48 @@ final class FeedbackViewController: UIViewController {
             ]
         )
 
+    }
+
+    @IBAction private func startTest(_ sender: UIButton) {
         FeatureBerrySessionManager.shared.startSession(presentingFrom: self)
     }
 }
 ```
+
+Connect the action to a button in your UI. **SwiftUI:** Configure the same
+manager before offering the button, then add the SDK's presenter button to a
+visible view:
+
+```swift
+import FeatureBerrySDK
+import SwiftUI
+
+struct FeedbackView: View {
+    @State private var isConfigured = false
+
+    var body: some View {
+        FeatureBerrySessionButton(title: "Start a test")
+            .disabled(!isConfigured)
+            .task {
+                guard let apiKey = FeatureBerryAppConfiguration.apiKey() else {
+                    print("Missing SDKAPIKey in Info.plist")
+                    return
+                }
+                FeatureBerrySessionManager.shared.configure(
+                    apiKey: apiKey,
+                    testType: .feature,
+                    codeword: "YOUR_CODEWORD",
+                    checklistItems: ["Sign in", "Add a dog walk", "Review walk history"]
+                )
+                isConfigured = true
+            }
+    }
+}
+```
+
+Configure once in app setup when possible. The button uses a presenter attached
+to its own view hierarchy, so place it in the scene that should show the session.
+Do not offer it until configuration is complete.
 
 ### Masking private information in recordings
 
@@ -235,6 +411,8 @@ black mask during recording; the mask is also visible on screen while recording.
 Masks follow their views as the layout changes and are removed when recording
 stops.
 
+**UIKit:**
+
 ```swift
 let sessionManager = FeatureBerrySessionManager.shared
 sessionManager.registerPrivacyMask(for: emailTextField)
@@ -242,8 +420,21 @@ sessionManager.startSession(presentingFrom: self)
 ```
 
 Call `unregisterPrivacyMask(for:)` when a view should no longer be masked.
-Sensitive views must be registered before recording starts so the masks are in
-place before the first captured frame.
+
+**SwiftUI:** Apply the modifier to every sensitive region:
+
+```swift
+Text(userEmail)
+    .featureBerryPrivacyMask()
+```
+
+The modifier registers a transparent UIKit view covering its rectangular layout
+bounds and unregisters it when removed from the hierarchy. Apply it after
+padding or other layout modifiers whose area must also be covered. It does not
+mask content outside those bounds, separate overlays, or other sensitive views.
+Sensitive views must be present and registered before recording starts so masks
+are in place before the first captured frame. Verify coverage on device for your
+layout, especially animations, transforms, and overlapping content.
 
 If a test session is interrupted by a crash, the SDK can include the crash log
 when the developer submits feedback after relaunching the app.
@@ -258,10 +449,8 @@ when the developer submits feedback after relaunching the app.
 4. Add `Config.xcconfig` to `.gitignore`. Commit only the template, and have
    teammates copy it.
 
-Add this to the first view controller your app opens, so the session starts from
-`viewDidLoad`. The SDK asks the user to confirm, then starts recording the app's screen
-and audio with ReplayKit. It also displays a floating button for opening the
-session menu.
+After a user starts a session, the SDK asks for confirmation before recording the
+app's screen with ReplayKit and displays a floating button for the session menu.
 
 ## Checklist items
 
