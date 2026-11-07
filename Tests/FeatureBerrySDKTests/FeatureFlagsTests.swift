@@ -76,6 +76,17 @@ import UIKit
 }
 
 @Suite @MainActor struct FeatureFlagEvaluationTests {
+    @Test func configuringPreservesTestingMode() {
+        let previousClient = FeatureBerry.client
+        FeatureBerry.userIsTesting = true
+        defer {
+            FeatureBerry.client = previousClient
+            FeatureBerry.userIsTesting = false
+        }
+        FeatureBerry.configure(apiKey: "sdk-key", appShortName: "sample")
+        #expect(FeatureBerry.userIsTesting)
+    }
+
     #if canImport(UIKit) && canImport(ReplayKit)
     @Test func startingConfiguredSessionEnablesTestingMode() {
         FeatureBerry.onUserIsTestingChanged = nil

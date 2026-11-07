@@ -23,7 +23,7 @@ enum RecordingStartFailureMessage {
 public final class FeatureBerrySessionManager: ObservableObject {
     public static let shared = FeatureBerrySessionManager()
 
-    /// Shows an orange dot under each touch in the recorded video.
+    /// Shows a pink dot under each touch in the recorded video.
     public var showsTouchIndicator = true
     /// How long a quick tap is held back so the dot reaches the video before the app reacts, in seconds. 0 disables.
     public var tapDelay: TimeInterval = 0.2
@@ -390,7 +390,7 @@ public final class FeatureBerrySessionManager: ObservableObject {
 
     private static func stylePopup(_ alert: UIAlertController) {
         alert.overrideUserInterfaceStyle = .dark
-        alert.view.tintColor = .systemOrange
+        alert.view.tintColor = .systemPink
     }
 
     // MARK: Menu
@@ -540,7 +540,6 @@ public final class FeatureBerrySessionManager: ObservableObject {
         crashRecovery = nil
         CrashReporter.endSession()
         currentTest = nil
-        FeatureBerry.userIsTesting = false
     }
 
     private func stopRecording() async -> URL? {

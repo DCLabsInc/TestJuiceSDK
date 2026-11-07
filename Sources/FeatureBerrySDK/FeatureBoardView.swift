@@ -386,7 +386,7 @@ private struct FeatureBoardRow: View {
     private func statusForeground(_ status: String) -> Color {
         let value = status.lowercased()
         if value.contains("progress") { return .blue }
-        if value.contains("testing") { return .orange }
+        if value.contains("testing") { return .pink }
         if value.contains("shipped") || value.contains("closed") { return .green }
         return .secondary
     }

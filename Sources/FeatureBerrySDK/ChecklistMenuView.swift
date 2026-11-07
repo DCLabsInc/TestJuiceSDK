@@ -7,14 +7,14 @@ private struct RewardBanner: View {
     let reward: SdkRewardInfo
     let signedIn: Bool
 
-    private var accent: Color { signedIn ? .green : .orange }
+    private var accent: Color { signedIn ? .green : .pink }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "gift.fill")
                     .font(.title2)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(.pink)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Reward: \(reward.description)")
@@ -43,12 +43,22 @@ private struct RewardBanner: View {
 }
 
 private struct TestBarberBrand: View {
+    var poweredBy = false
+
     var body: some View {
-        HStack(spacing: 8) {
-            Text("🫐 FeatureBerry")
-                .font(.headline)
-                .foregroundStyle(.primary)
+        HStack(spacing: 4) {
+            if poweredBy {
+                Text("Powered by")
+            }
+            Image("featureberry-logo", bundle: .module)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 17, height: 17)
+                .accessibilityHidden(true)
+            Text("FeatureBerry")
         }
+        .font(.headline)
+        .foregroundStyle(.primary)
         .fixedSize()
         .accessibilityElement(children: .combine)
     }
@@ -72,6 +82,15 @@ struct SessionConfirmationView: View {
         ZStack {
             Color.black.opacity(0.7).ignoresSafeArea()
             VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Spacer()
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .accessibilityLabel("Close")
+                }
                 if let reward {
                     RewardBanner(reward: reward, signedIn: false)
                     Text("Record your session to earn the reward: \(reward.description). Then sign in with Apple when you submit your test result to get your reward instructions.")
@@ -81,13 +100,13 @@ struct SessionConfirmationView: View {
                     Text("Recording helps us fix more bugs. Once recording starts, return to your app and test as usual.")
                 }
 
-                TestBarberBrand()
-                    .frame(maxWidth: .infinity, alignment: .trailing)
+                TestBarberBrand(poweredBy: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                 HStack {
                     Button("Record session") { choose(record: true) }
                         .buttonStyle(.borderedProminent)
-                        .tint(.orange)
+                        .tint(.pink)
                         .foregroundStyle(.black)
                     Spacer()
                     Button("Don't record") { choose(record: false) }
@@ -99,7 +118,7 @@ struct SessionConfirmationView: View {
             .padding(24)
             .frame(maxWidth: 420)
             .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 20))
-            .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.orange.opacity(0.7)))
+            .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.pink.opacity(0.7)))
             .padding(24)
         }
         .preferredColorScheme(.dark)
@@ -153,7 +172,7 @@ struct ChecklistMenuView: View {
                     } label: {
                         HStack {
                             Image(systemName: sessionManager.checkedChecklistItemKeys.contains(item.key) ? "checkmark.square.fill" : "square")
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(.pink)
                             Text(item.label)
                                 .foregroundStyle(.primary)
                         }
@@ -249,7 +268,7 @@ struct ChecklistMenuView: View {
                         submit(outcome: "pass")
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(.orange)
+                    .tint(.pink)
                     .foregroundStyle(.black)
                     .disabled(isSubmitting)
 
@@ -265,7 +284,7 @@ struct ChecklistMenuView: View {
                         submit(outcome: nil)
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(.orange)
+                    .tint(.pink)
                     .foregroundStyle(.black)
                     .disabled(feedback.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSubmitting)
                 }
@@ -280,7 +299,7 @@ struct ChecklistMenuView: View {
             }
             .navigationTitle(test.title)
             .navigationBarTitleDisplayMode(.inline)
-            .tint(.orange)
+            .tint(.pink)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("X") { dismiss() }
