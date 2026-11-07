@@ -150,11 +150,10 @@ public enum FeatureBerry {
     public static let horizonCacheDuration: TimeInterval = 7 * 60
     public static let featuresCacheDuration: TimeInterval = 12 * 60
 
-    private static var client: FeatureBerryFeatureClient?
+    static var client: FeatureBerryFeatureClient?
     private static var horizons: [String: CachedHorizon] = [:]
     private static var pendingHorizonRequests = Set<String>()
     private static var features: CachedFeatures?
-    private static var backgroundObserver: NSObjectProtocol?
     /// Called on the main actor when the user's testing mode changes.
     public static var onUserIsTestingChanged: ((Bool) -> Void)?
 
@@ -179,9 +178,7 @@ public enum FeatureBerry {
         horizons.removeAll()
         pendingHorizonRequests.removeAll()
         features = nil
-        userIsTesting = false
         client = FeatureBerryFeatureClient(apiKey: apiKey, appShortName: appShortName, baseURL: baseURL)
-        observeBackgrounding()
         Task { try? await refreshFeatures() }
     }
 
@@ -238,18 +235,6 @@ public enum FeatureBerry {
         horizons[codeword] = CachedHorizon(value: horizon, fetchedAt: fetchedAt)
     }
 
-    private static func observeBackgrounding() {
-        #if canImport(UIKit)
-        guard backgroundObserver == nil else { return }
-        backgroundObserver = NotificationCenter.default.addObserver(
-            forName: UIApplication.didEnterBackgroundNotification,
-            object: nil,
-            queue: .main
-        ) { _ in
-            Task { @MainActor in userIsTesting = false }
-        }
-        #endif
-    }
 }
 
 @MainActor
@@ -277,16 +262,16 @@ import SwiftUI
 public struct FeatureBerryTestingSettings: View {
     private let title: String
     private let tint: Color
+    private let onSelect: () -> Void
 
-    public init(title: String = "Test new features", tint: Color = .accentColor) {
+    public init(title: String = "Test new features", tint: Color = .accentColor, onSelect: @escaping () -> Void) {
         self.title = title
         self.tint = tint
+        self.onSelect = onSelect
     }
 
     public var body: some View {
-        Button(title) {
-            FeatureBerry.userIsTesting = true
-        }
+        Button(title, action: onSelect)
         .tint(tint)
     }
 }

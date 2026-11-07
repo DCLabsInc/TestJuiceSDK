@@ -99,19 +99,19 @@ if FeatureBerry.Feature("new-checkout").LiveOrUserIsTesting {
 `.Live` is true when a feature's Horizon status is `Shipped`; `.Testing` is true
 when its status is `Testing`, regardless of the user's opt-in. `.LiveOrUserIsTesting`
 is true for shipped features, or for testing features when the user has opted in.
-Add the provided button under Feature Requests in your settings to let users opt
-in, or set `FeatureBerry.userIsTesting` from your own button. Starting a configured
-test session also enables testing mode; successfully submitting the session
-disables it. Testing mode resets when the app enters the background and is not
-persisted across app launches.
-The provided button's tint is customizable:
+The app controls `FeatureBerry.userIsTesting`; starting a configured test session
+also enables it. Configuring the SDK, backgrounding, and finishing a session do
+not change it. The value is not persisted across app launches. For example, the
+provided settings button delegates the choice to the app:
 
 ```swift
-FeatureBerryTestingSettings(tint: .orange)
+FeatureBerryTestingSettings(tint: .pink) {
+    FeatureBerry.userIsTesting = true
+}
 ```
 
 Set `FeatureBerry.onUserIsTestingChanged` to refresh your app's current view when
-the user opts in or testing mode resets. The callback runs on the main actor and
+testing mode changes. The callback runs on the main actor and
 receives the new value; assigning the same value again does not call it.
 For example, in a view controller:
 
@@ -121,8 +121,7 @@ FeatureBerry.onUserIsTestingChanged = { [weak self] _ in
 }
 ```
 
-Clear the callback when it is no longer needed. Configure feature flags before
-the user opts in, because `configure` also resets testing mode.
+Clear the callback when it is no longer needed.
 
 Call `FeatureBerry.refreshFeature(codeword:force:)` to explicitly refresh an
 individual status, or `FeatureBerry.refreshFeatures(force:)` to fetch the app's
