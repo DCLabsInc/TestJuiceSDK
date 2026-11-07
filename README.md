@@ -225,100 +225,49 @@ feature list.
 ### What's New
 
 After configuring feature flags, call `FeatureBerry.CheckWhatsNew(releaseCodeword:)`
-to check for shipped features and features in testing. It fetches feature statuses
-only when the host app's `CFBundleShortVersionString` or `CFBundleVersion` differs
-from the last successfully checked version. The returned `FeatureBerryWhatsNew` provides
-`newFeatures`, `testFeatures`, and the release codeword's `releaseHorizon`; it
-returns `nil` when the current app version was already checked.
+on the main actor. The SDK fetches the published release and presents its shipped
+and testing features, including a testing-mode toggle. Continue opens showcased
+reviews and offers an App Store review request; Apple decides whether to show the
+review prompt. No test session or screen recording starts automatically.
 
-**UIKit:** Check from a view controller after it is visible and ready to present:
+**UIKit:** Call from a view controller after it is visible:
 
 ```swift
 override func viewDidAppear(_ animated: Bool) {
     super.viewDidAppear(animated)
 
-    Task { @MainActor in
-        do {
-            guard let whatsNew = try await FeatureBerry.CheckWhatsNew(
-                releaseCodeword: "YOUR_RELEASE_CODEWORD"
-            ) else { return }
-
-            showWhatsNew(newFeatures: whatsNew.newFeatures, testFeatures: whatsNew.testFeatures)
-        } catch {
-            print("Unable to check for new features: \(error)")
-        }
-    }
-}
-
-private func showWhatsNew(
-    newFeatures: [FeatureBerryAppFeature],
-    testFeatures: [FeatureBerryAppFeature]
-) {
-    let sections = [
-        ("New features", newFeatures),
-        ("Now testing", testFeatures)
-    ].compactMap { section -> String? in
-        let (title, features) = section
-        guard !features.isEmpty else { return nil }
-        return "\(title):\n" + features.map { "• \($0.title)" }.joined(separator: "\n")
-    }
-    guard !sections.isEmpty else { return }
-
-    let alert = UIAlertController(
-        title: "What's New",
-        message: sections.joined(separator: "\n\n"),
-        preferredStyle: .alert
-    )
-    alert.addAction(UIAlertAction(title: "OK", style: .default))
-    present(alert, animated: true)
+    FeatureBerry.CheckWhatsNew(releaseCodeword: "YOUR_RELEASE_CODEWORD")
 }
 ```
 
-**SwiftUI:** Check from a visible view and present the returned data in a sheet:
+**SwiftUI:** Call from a visible view:
 
 ```swift
 struct WhatsNewHost: View {
-    @State private var whatsNew: FeatureBerryWhatsNew?
-    @State private var showWhatsNew = false
-
     var body: some View {
         Text("Welcome")
-            .task {
-                do {
-                    if let result = try await FeatureBerry.CheckWhatsNew(
-                        releaseCodeword: "YOUR_RELEASE_CODEWORD"
-                    ) {
-                        whatsNew = result
-                        showWhatsNew = !result.newFeatures.isEmpty || !result.testFeatures.isEmpty
-                    }
-                } catch {
-                    print("Unable to check for new features: \(error)")
-                }
-            }
-            .sheet(isPresented: $showWhatsNew) {
-                if let result = whatsNew {
-                    List {
-                        Section("New features") {
-                            ForEach(result.newFeatures) { feature in
-                                Text(feature.title)
-                            }
-                        }
-                        Section("Now testing") {
-                            ForEach(result.testFeatures) { feature in
-                                Text(feature.title)
-                            }
-                        }
-                    }
-                }
+            .onAppear {
+                FeatureBerry.CheckWhatsNew(releaseCodeword: "YOUR_RELEASE_CODEWORD")
             }
     }
 }
 ```
 
-The presentation helper is app-specific; the SDK returns feature data but does
-not present a What's New screen. A successful check is recorded immediately,
-even if the app does not show the result, so check only when the UI is ready to
-present it. `nil` also covers a missing bundle version or a check already in progress.
+The first call and changes to either `CFBundleShortVersionString` or
+`CFBundleVersion` trigger a check. A successful empty release is recorded without
+showing a sheet; a nonempty release is recorded when the sheet appears. Network
+errors and unavailable presentation do not mark the version as checked. Errors
+are logged under the `com.featureberry.sdk` / `WhatsNew` category; call again
+when the app is ready to retry. The SDK requires one active scene with a key
+window and no other modal; it waits briefly for the UI to become ready.
+
+The endpoints `/api/sdk/v1/releases/whatsnew` and `/api/sdk/v1/reviews/showcased`
+must accept the app's non-admin SDK key. Never embed an owner/admin key.
+For a custom UI, the previous data-only check is now called
+`try await FeatureBerry.fetchWhatsNewData(releaseCodeword:)`; it retains its
+original feature-list and horizon behavior and has separate version tracking.
+Existing `try await FeatureBerry.CheckWhatsNew(...)` integrations should migrate
+to that method or remove their custom presentation and use the one-call flow.
 
 Using the Feature Board alone does **not** initialize a test session or start
 screen recording. Do not call `FeatureBerrySessionManager.configure(...)` or
