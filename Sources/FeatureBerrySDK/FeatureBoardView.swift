@@ -63,7 +63,7 @@ private struct FeatureBoardView: View {
     }
 
     private enum PendingAction {
-        case vote(URL)
+        case vote(String)
         case suggest(String, String)
     }
 
@@ -79,10 +79,18 @@ private struct FeatureBoardView: View {
     @State private var isShowingSignIn = false
     @State private var suggestionName = ""
     @State private var suggestionDescription = ""
-    @State private var email: String?
+    @AppStorage private var email = ""
     @State private var pendingAction: PendingAction?
+    @State private var votedCodewords: Set<String> = []
     @State private var errorMessage: String?
     @State private var statusMessage: String?
+
+    init(appShortName: String, apiKey: String, baseURL: URL) {
+        self.appShortName = appShortName
+        self.apiKey = apiKey
+        self.baseURL = baseURL
+        _email = AppStorage(wrappedValue: "", "featureberry.email.\(appShortName)")
+    }
 
     private var client: FeatureBoardClient {
         FeatureBoardClient(configuration: FeatureBoardConfiguration(
@@ -98,13 +106,13 @@ private struct FeatureBoardView: View {
             VStack(spacing: 0) {
             HStack {
                 Button {
-                    isShowingSuggestion = true
+                    dismiss()
                 } label: {
-                    Image(systemName: "plus")
-                        .font(.title2.weight(.medium))
+                    Image(systemName: "xmark")
+                        .font(.title3.weight(.semibold))
                         .frame(width: 44, height: 44)
                 }
-                .accessibilityLabel("Suggest a feature")
+                .accessibilityLabel("Close")
 
                 Spacer()
                 Text("Feature Board")
@@ -112,20 +120,15 @@ private struct FeatureBoardView: View {
                 Spacer()
 
                 Button {
-                    guard let url = webURL(response?.profileURL) else {
-                        errorMessage = "The profile page is not available."
-                        return
-                    }
-                    navigationPath.append(url)
+                    isShowingSuggestion = true
                 } label: {
-                    Image(systemName: "person.crop.circle")
-                        .font(.title2)
+                    Image(systemName: "plus")
+                        .font(.title2.weight(.medium))
                         .frame(width: 44, height: 44)
                 }
-                .accessibilityLabel("Profile")
+                .accessibilityLabel("Suggest a feature")
             }
             .padding(.horizontal)
-            .padding(.top, 8)
 
             Picker("Feature status", selection: $selectedTab) {
                 Text("Open (\(count(closed: false)))").tag(BoardTab.open)
@@ -148,7 +151,8 @@ private struct FeatureBoardView: View {
                 List(features) { feature in
                     FeatureBoardRow(
                         feature: feature,
-                        detailURL: webURL(feature.detailURL),
+                        detailURL: featureWebURL(feature),
+                        hasVoted: feature.hasVoted || votedCodewords.contains(feature.codeword ?? ""),
                         onVote: { vote(feature) },
                         onOpen: { url in navigationPath.append(url) })
                     .listRowSeparator(.visible)
@@ -158,29 +162,9 @@ private struct FeatureBoardView: View {
             }
             }
             .navigationBarBackButtonHidden()
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Close") { dismiss() }
-                }
-            }
-            .navigationDestination(for: URL.self) { url in
-                FeatureBoardWebView(url: url)
-                    .ignoresSafeArea(edges: .bottom)
-                    .toolbar {
-                        ToolbarItem(placement: .topBarTrailing) {
-                            Button {
-                                guard let profile = webURL(response?.profileURL) else {
-                                    errorMessage = "The profile page is not available."
-                                    return
-                                }
-                                navigationPath.append(profile)
-                            } label: {
-                                Image(systemName: "person.crop.circle")
-                            }
-                            .accessibilityLabel("Profile")
-                        }
-                    }
-            }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            signInFooter
         }
         .task { await loadFeatures() }
         .sheet(isPresented: $isShowingSuggestion) {
@@ -197,6 +181,10 @@ private struct FeatureBoardView: View {
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
         }
+        .navigationDestination(for: URL.self) { url in
+            FeatureBoardWebView(url: url)
+                .ignoresSafeArea(edges: .bottom)
+        }
         .alert("Feature Board", isPresented: Binding(
             get: { errorMessage != nil || statusMessage != nil },
             set: { if !$0 { errorMessage = nil; statusMessage = nil } })) {
@@ -204,6 +192,62 @@ private struct FeatureBoardView: View {
             } message: {
                 Text(errorMessage ?? statusMessage ?? "")
             }
+    }
+
+    private var signInFooter: some View {
+        HStack {
+            if email.isEmpty {
+                SignInWithAppleButton(.signIn) { request in
+                    request.requestedScopes = [.email]
+                } onCompletion: { result in
+                    switch result {
+                    case let .success(authorization):
+                        guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                              let authorizedEmail = AppleSignInEmail.resolve(
+                                credentialEmail: credential.email,
+                                identityToken: credential.identityToken)
+                        else {
+                            errorMessage = "Apple did not provide an email address. Try signing in again."
+                            return
+                        }
+                        email = authorizedEmail
+                        Task {
+                            if pendingAction == nil {
+                                await loadFeatures()
+                            } else {
+                                await performPendingAction()
+                            }
+                        }
+                    case let .failure(error):
+                        errorMessage = error.localizedDescription
+                    }
+                }
+                .signInWithAppleButtonStyle(.black)
+                .frame(height: 50)
+            } else {
+                Button {
+                    guard let loginURL = URL(string: "https://featureberry.com/Login") else { return }
+                    navigationPath.append(loginURL)
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "apple.logo")
+                        Text(email)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(Color.black, in: RoundedRectangle(cornerRadius: 8))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Signed in as \(email). Open FeatureBerry login")
+            }
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 10)
+        .background(Color.black.ignoresSafeArea(edges: .bottom))
     }
 
     private var suggestionForm: some View {
@@ -244,6 +288,18 @@ private struct FeatureBoardView: View {
         return url
     }
 
+    private func featureWebURL(_ feature: FeatureBerryRoadmapFeature) -> URL? {
+        guard let codeword = feature.codeword?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !codeword.isEmpty
+        else { return webURL(feature.detailURL) }
+        var allowedCharacters = CharacterSet.urlPathAllowed
+        allowedCharacters.remove(charactersIn: "/?#%")
+        guard let pathComponent = codeword.addingPercentEncoding(withAllowedCharacters: allowedCharacters) else {
+            return nil
+        }
+        return URL(string: "https://featureberry.com/f/\(pathComponent)")
+    }
+
     private func loadFeatures() async {
         isLoading = true
         defer { isLoading = false }
@@ -256,12 +312,14 @@ private struct FeatureBoardView: View {
     }
 
     private func vote(_ feature: FeatureBerryRoadmapFeature) {
-        guard let rawVoteURL = feature.voteURL, let url = webURL(rawVoteURL) else {
+        guard let codeword = feature.codeword?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !codeword.isEmpty
+        else {
             errorMessage = "Voting is not available for this feature."
             return
         }
-        pendingAction = .vote(url)
-        if email == nil {
+        pendingAction = .vote(codeword)
+        if email.isEmpty {
             isShowingSignIn = true
         } else {
             Task { await performPendingAction() }
@@ -273,7 +331,7 @@ private struct FeatureBoardView: View {
         guard !name.isEmpty else { return }
         pendingAction = .suggest(name, suggestionDescription.trimmingCharacters(in: .whitespacesAndNewlines))
         isShowingSuggestion = false
-        if email == nil {
+        if email.isEmpty {
             isShowingSignIn = true
         } else {
             Task { await performPendingAction() }
@@ -281,12 +339,13 @@ private struct FeatureBoardView: View {
     }
 
     private func performPendingAction() async {
-        guard let email, let pendingAction else { return }
+        guard !email.isEmpty, let pendingAction else { return }
         self.pendingAction = nil
         do {
             switch pendingAction {
-            case let .vote(url):
-                try await client.vote(email: email, url: url)
+            case let .vote(codeword):
+                try await client.vote(email: email, codeword: codeword)
+                votedCodewords.insert(codeword)
                 await loadFeatures()
                 statusMessage = "Your vote has been recorded."
             case let .suggest(name, description):
@@ -310,6 +369,7 @@ private struct FeatureBoardView: View {
 private struct FeatureBoardRow: View {
     let feature: FeatureBerryRoadmapFeature
     let detailURL: URL?
+    let hasVoted: Bool
     let onVote: () -> Void
     let onOpen: (URL) -> Void
 
@@ -317,7 +377,7 @@ private struct FeatureBoardRow: View {
         HStack(spacing: 14) {
             Button(action: onVote) {
                 VStack(spacing: 8) {
-                    Image(systemName: "arrow.up")
+                    Image(systemName: hasVoted ? "checkmark" : "arrow.up")
                         .font(.system(size: 22, weight: .semibold))
                     Text("\(feature.voteCount)")
                         .font(.subheadline.bold())
@@ -329,7 +389,10 @@ private struct FeatureBoardRow: View {
                 .background(Color(red: 0.94, green: 0.16, blue: 0.35), in: RoundedRectangle(cornerRadius: 22))
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Vote for \(feature.title), \(feature.voteCount) votes")
+            .accessibilityLabel(
+                hasVoted
+                    ? "You voted for \(feature.title), \(feature.voteCount) votes"
+                    : "Vote for \(feature.title), \(feature.voteCount) votes")
 
             Group {
                 if let detailURL {

@@ -45,7 +45,7 @@ Other Info.plist privacy keys depend on which features you enable:
 
 The Feature Board is the primary use of this SDK. Add its button to any SwiftUI
 view, including a list row or toolbar. Tapping it presents a native sheet with the
-roadmap, voting, feature suggestions, and linked detail/profile pages:
+roadmap, voting, feature suggestions, and codeword-linked feature pages:
 
 ```swift
 import FeatureBerrySDK
@@ -76,11 +76,14 @@ FeatureBerryFeatureBoard.present(from: self, appShortName: "YOUR_APP_SHORT_NAME"
 
 Here `self` is a `UIViewController`, and `apiKey` is your public SDK API key.
 Provide the public SDK API key generated for your app. Never include a privileged
-server secret in an iOS app. The board fetches roadmap features from the SDK API;
-voting and suggestions prompt for Sign in with Apple when needed.
-The backend's roadmap and suggestion endpoints must support `appShortName` and
-the user-level SDK key, as used by the feature flags API. Older backend versions
-that require an app ID and app-specific key are not compatible.
+server secret in an iOS app. The board fetches roadmap features from the SDK API,
+then submits votes to `/api/sdk/v1/feature-votes` with a feature codeword and email,
+and suggestions to `/api/sdk/v1/feature-suggestions` with the app short name, email,
+feature name, and optional description. Both endpoints receive the public SDK key
+in the `X-Api-Key` header. The board stores the signed-in email per app and uses it
+to submit votes and suggestions. Sign in with Apple is available from the board
+footer and is also prompted when voting or submitting a suggestion without a saved
+email.
 
 ## Feature flags and testing mode
 

@@ -12,6 +12,8 @@ public struct FeatureBerryRoadmapFeature: Decodable, Identifiable, Sendable {
     public let priority: Int?
     public let voteCount: Int
     public let links: [String: String]
+    public let codeword: String?
+    public let hasVoted: Bool
     private let featureDetailURL: String?
 
     public var detailURL: String? {
@@ -32,6 +34,9 @@ public struct FeatureBerryRoadmapFeature: Decodable, Identifiable, Sendable {
         case priority
         case voteCount
         case links
+        case codeword
+        case Codeword
+        case hasVoted
         case statusLabel
         case featureDetailURL
         case featureDetailUrl
@@ -49,6 +54,10 @@ public struct FeatureBerryRoadmapFeature: Decodable, Identifiable, Sendable {
         priority = try container.decodeIfPresent(Int.self, forKey: .priority)
         voteCount = try container.decodeIfPresent(Int.self, forKey: .voteCount) ?? 0
         links = try container.decodeIfPresent([String: String].self, forKey: .links) ?? [:]
+        codeword = try container.decodeIfPresent(String.self, forKey: .codeword)
+            ?? container.decodeIfPresent(String.self, forKey: .Codeword)
+        hasVoted = try container.decodeIfPresent(Bool.self, forKey: .hasVoted)
+            ?? false
         featureDetailURL = try container.decodeIfPresent(String.self, forKey: .featureDetailURL)
             ?? container.decodeIfPresent(String.self, forKey: .featureDetailUrl)
     }
@@ -140,6 +149,21 @@ public struct FeatureBerryFeatureSuggestion: Encodable, Sendable {
         self.featureName = featureName
         self.description = description
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case appShortName
+        case email
+        case featureName
+        case description
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(appShortName, forKey: .appShortName)
+        try container.encode(email, forKey: .email)
+        try container.encode(featureName, forKey: .featureName)
+        try container.encodeIfPresent(description, forKey: .description)
+    }
 }
 
 struct FeatureBoardConfiguration: Sendable {
@@ -150,7 +174,8 @@ struct FeatureBoardConfiguration: Sendable {
 
 struct FeatureBoardClient: Sendable {
     static let featuresPath = "/api/sdk/roadmap/features"
-    static let suggestionPath = "/api/sdk/feature/suggest"
+    static let suggestionPath = "/api/sdk/v1/feature-suggestions"
+    static let votesPath = "/api/sdk/v1/feature-votes"
     private let configuration: FeatureBoardConfiguration
     private let session: URLSession
 
@@ -176,26 +201,31 @@ struct FeatureBoardClient: Sendable {
     }
 
     func makeSuggestionRequest(_ suggestion: FeatureBerryFeatureSuggestion) throws -> URLRequest {
-        guard let url = URL(string: Self.suggestionPath, relativeTo: configuration.baseURL)?.absoluteURL else {
-            throw FeatureBerryError.invalidURL
-        }
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(suggestion)
-        return request
+        try makeV1PostRequest(path: Self.suggestionPath, body: JSONEncoder().encode(suggestion))
     }
 
-    func makeVoteRequest(email: String, url: URL) throws -> URLRequest {
-        guard Self.isSecureAPIURL(url, baseURL: configuration.baseURL) else {
+    func makeVoteRequest(email: String, codeword: String) throws -> URLRequest {
+        guard !codeword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw FeatureBerryError.invalidURL
         }
+        return try makeV1PostRequest(
+            path: Self.votesPath,
+            body: JSONEncoder().encode(Vote(codeword: codeword, email: email)))
+    }
+
+    private func makeV1PostRequest(path: String, body: Data) throws -> URLRequest {
+        guard var components = URLComponents(url: configuration.baseURL, resolvingAgainstBaseURL: false) else {
+            throw FeatureBerryError.invalidURL
+        }
+        components.path = path
+        components.query = nil
+        guard let url = components.url else { throw FeatureBerryError.invalidURL }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        request.setValue(configuration.apiKey, forHTTPHeaderField: "X-Api-Key")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(Vote(email: email))
+        request.httpBody = body
         return request
     }
 
@@ -210,22 +240,14 @@ struct FeatureBoardClient: Sendable {
         try Self.validate(response: response, data: data)
     }
 
-    func vote(email: String, url: URL) async throws {
-        let (data, response) = try await session.data(for: makeVoteRequest(email: email, url: url))
+    func vote(email: String, codeword: String) async throws {
+        let (data, response) = try await session.data(for: makeVoteRequest(email: email, codeword: codeword))
         try Self.validate(response: response, data: data)
     }
 
     private struct Vote: Encodable {
+        let codeword: String
         let email: String
-    }
-
-    private static func isSecureAPIURL(_ url: URL, baseURL: URL) -> Bool {
-        guard url.scheme?.lowercased() == "https",
-              baseURL.scheme?.lowercased() == "https",
-              let host = url.host?.lowercased(),
-              host == baseURL.host?.lowercased()
-        else { return false }
-        return true
     }
 
     private static func validate(response: URLResponse, data: Data) throws {

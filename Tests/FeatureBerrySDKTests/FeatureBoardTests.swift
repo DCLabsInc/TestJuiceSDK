@@ -18,6 +18,7 @@ import Testing
         #expect(components.queryItems?.first(where: { $0.name == "appShortName" })?.value == "StepDog")
         #expect(components.queryItems?.first(where: { $0.name == "appId" }) == nil)
         #expect(components.queryItems?.first(where: { $0.name == "apiKey" })?.value == "key & value")
+        #expect(components.queryItems?.first(where: { $0.name == "email" }) == nil)
     }
 
     @Test func suggestionRequestEncodesRequiredPayload() throws {
@@ -35,42 +36,56 @@ import Testing
         let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
 
         #expect(request.httpMethod == "POST")
-        #expect(request.url?.path == "/api/sdk/feature/suggest")
+        #expect(request.url?.path == "/api/sdk/v1/feature-suggestions")
+        #expect(request.value(forHTTPHeaderField: "X-Api-Key") == "sdk-key")
         #expect(json["appShortName"] as? String == "StepDog")
         #expect(json["appId"] == nil)
-        #expect(json["apiKey"] as? String == "sdk-key")
+        #expect(json["apiKey"] == nil)
         #expect(json["email"] as? String == "tester@example.com")
         #expect(json["featureName"] as? String == "Dark mode")
         #expect(json["description"] as? String == "Use a dark theme")
     }
 
-    @Test func voteRequestPostsEmailToApiProvidedUrl() throws {
+    @Test func suggestionRequestOmitsEmptyOptionalDescription() throws {
         let client = FeatureBoardClient(configuration: .init(
             appShortName: "StepDog",
             apiKey: "sdk-key",
             baseURL: URL(string: "https://portal.featureberry.com")!))
-        let voteURL = URL(string: "https://portal.featureberry.com/api/sdk/feature/42/vote")!
-        let request = try client.makeVoteRequest(email: "tester@example.com", url: voteURL)
+        let request = try client.makeSuggestionRequest(FeatureBerryFeatureSuggestion(
+            appShortName: "StepDog",
+            apiKey: "sdk-key",
+            email: "tester@example.com",
+            featureName: "Dark mode"))
+        let body = try #require(request.httpBody)
+        let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+
+        #expect(json["description"] == nil)
+    }
+
+    @Test func voteRequestPostsCodewordAndEmailToV1Endpoint() throws {
+        let client = FeatureBoardClient(configuration: .init(
+            appShortName: "StepDog",
+            apiKey: "sdk-key",
+            baseURL: URL(string: "https://portal.featureberry.com")!))
+        let request = try client.makeVoteRequest(email: "tester@example.com", codeword: "dark-mode")
         let body = try #require(request.httpBody)
         let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: String])
 
         #expect(request.httpMethod == "POST")
-        #expect(request.url == voteURL)
+        #expect(request.url?.path == "/api/sdk/v1/feature-votes")
+        #expect(request.value(forHTTPHeaderField: "X-Api-Key") == "sdk-key")
+        #expect(json["codeword"] == "dark-mode")
         #expect(json["email"] == "tester@example.com")
     }
 
-    @Test(arguments: [
-        URL(string: "http://portal.featureberry.com/api/sdk/feature/42/vote")!,
-        URL(string: "https://example.com/collect")!
-    ])
-    func voteRequestRejectsInsecureOrUntrustedUrls(url: URL) {
+    @Test func voteRequestRejectsMissingCodeword() {
         let client = FeatureBoardClient(configuration: .init(
             appShortName: "StepDog",
             apiKey: "sdk-key",
             baseURL: URL(string: "https://portal.featureberry.com")!))
 
         #expect(throws: FeatureBerryError.invalidURL) {
-            try client.makeVoteRequest(email: "tester@example.com", url: url)
+            try client.makeVoteRequest(email: "tester@example.com", codeword: " \n")
         }
     }
 
@@ -85,6 +100,8 @@ import Testing
             "horizon": "UpNext",
             "priority": 2,
             "voteCount": 3,
+            "codeword": "dark-mode",
+            "hasVoted": true,
             "links": {
               "FeatureDetail": "https://portal.featureberry.com/features/42",
               "Vote": "https://portal.featureberry.com/api/sdk/feature/42/vote"
@@ -98,6 +115,8 @@ import Testing
         #expect(response.features.count == 1)
         #expect(response.features[0].title == "Dark mode")
         #expect(response.features[0].voteCount == 3)
+        #expect(response.features[0].codeword == "dark-mode")
+        #expect(response.features[0].hasVoted)
         #expect(response.features[0].detailURL == "https://portal.featureberry.com/features/42")
         #expect(response.features[0].voteURL == "https://portal.featureberry.com/api/sdk/feature/42/vote")
         #expect(response.profileURL == "https://portal.featureberry.com/profile")
@@ -113,6 +132,7 @@ import Testing
             "id": 42,
             "title": "Share buttons",
             "description": "Share",
+            "Codeword": "share-buttons",
             "priority": 2,
             "status": 2,
             "statusLabel": "Done",
@@ -128,6 +148,7 @@ import Testing
         #expect(feature.status == "Done")
         #expect(feature.horizon == "Shipped")
         #expect(feature.isClosed)
+        #expect(feature.codeword == "share-buttons")
         #expect(feature.detailURL == "https://portal.featureberry.com/feature/42")
         #expect(response.profileURL == "https://portal.featureberry.com/profile")
         #expect(feature.voteURL == nil)
