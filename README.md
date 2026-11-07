@@ -127,6 +127,21 @@ Call `FeatureBerry.refreshFeature(codeword:force:)` to explicitly refresh an
 individual status, or `FeatureBerry.refreshFeatures(force:)` to fetch the app's
 feature list.
 
+### What's New
+
+After configuring feature flags, call `FeatureBerry.CheckWhatsNew(releaseCodeword:)`
+to check for shipped features and features in testing. It fetches feature statuses
+only when the host app's `CFBundleShortVersionString` or `CFBundleVersion` differs
+from the last successfully checked version. The returned `FeatureBerryWhatsNew` provides
+`newFeatures`, `testFeatures`, and the release codeword's `releaseHorizon`; it
+returns `nil` when the current app version was already checked.
+
+```swift
+if let whatsNew = try await FeatureBerry.CheckWhatsNew(releaseCodeword: "YOUR_RELEASE_CODEWORD") {
+    showWhatsNew(newFeatures: whatsNew.newFeatures, testFeatures: whatsNew.testFeatures)
+}
+```
+
 Using the Feature Board alone does **not** initialize a test session or start
 screen recording. Do not call `FeatureBerrySessionManager.configure(...)` or
 `startSession(presentingFrom:)` unless you also want to offer testing.
@@ -173,20 +188,6 @@ final class FeedbackViewController: UIViewController {
     }
 }
 ```
-
-### Triggering the What's New prompt
-
-The SDK's What's New prompt is the **Version now live** alert; there is no
-separate presentation call. Configure `FeatureBerrySessionManager` at app startup
-with the codeword associated with the release. Configuration checks for a live
-version immediately and again whenever the app becomes active. When
-`/api/testnowlive` returns a valid App Store URL for that codeword, the SDK shows
-the alert: **Wait** dismisses it, and **Live version** opens the URL. If the
-endpoint returns no URL, the prompt is not shown.
-
-This check is part of session-manager configuration. Configuring it does not
-start a test session or recording; call `startSession(presentingFrom:)` separately
-only when you want to offer the test flow.
 
 ### Masking private information in recordings
 
