@@ -118,7 +118,7 @@ enum CrashReporter {
         var lines = [
             "Bundle ID: \(Bundle.main.bundleIdentifier ?? "unknown")",
             "Version: \(info?["CFBundleShortVersionString"] as? String ?? "") (\(info?["CFBundleVersion"] as? String ?? ""))",
-            "OS: \(UIDevice.current.systemName) \(UIDevice.current.systemVersion)",
+            "OS: iOS \(ProcessInfo.processInfo.operatingSystemVersionString)",
             "Date: \(Date())",
             "Binary Images:"
         ]
