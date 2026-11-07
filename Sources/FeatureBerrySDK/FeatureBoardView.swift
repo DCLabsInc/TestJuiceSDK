@@ -79,7 +79,7 @@ private struct FeatureBoardView: View {
     @State private var isShowingSignIn = false
     @State private var suggestionName = ""
     @State private var suggestionDescription = ""
-    @AppStorage private var email = ""
+    @AppStorage private var email: String
     @State private var pendingAction: PendingAction?
     @State private var votedCodewords: Set<String> = []
     @State private var errorMessage: String?
