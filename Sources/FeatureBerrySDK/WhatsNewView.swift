@@ -54,6 +54,13 @@ public extension FeatureBerry {
                     sheet.prefersGrabberVisible = true
                 }
                 presenter.present(controller, animated: true)
+                for _ in 0..<20 {
+                    if UserDefaults.standard.string(forKey: whatsNewPresentationKey) == version {
+                        return
+                    }
+                    try await Task.sleep(for: .milliseconds(250))
+                }
+                whatsNewLogger.error("What's New did not appear; call again when presentation is available.")
             } catch {
                 whatsNewLogger.error("What's New check failed: \(error.localizedDescription, privacy: .public)")
             }
@@ -104,6 +111,12 @@ private struct WhatsNewView: View {
                                 FeatureBerry.userIsTesting = value
                             }
                     }
+                    #if canImport(ReplayKit)
+                    if let codeword = release.codeword,
+                       FeatureBerrySessionManager.shared.isConfiguredForRelease(codeword: codeword) {
+                        FeatureBerrySessionButton(title: "Perform test session")
+                    }
+                    #endif
                     Button("Continue") { showReviews = true }
                         .buttonStyle(.borderedProminent)
                         .frame(maxWidth: .infinity)

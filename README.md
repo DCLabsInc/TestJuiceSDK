@@ -228,7 +228,9 @@ After configuring feature flags, call `FeatureBerry.CheckWhatsNew(releaseCodewor
 on the main actor. The SDK fetches the published release and presents its shipped
 and testing features, including a testing-mode toggle. Continue opens showcased
 reviews and offers an App Store review request; Apple decides whether to show the
-review prompt. No test session or screen recording starts automatically.
+review prompt. If the session manager was separately configured for this release,
+the sheet also offers a test-session button. No test session or screen recording
+starts automatically.
 
 **UIKit:** Call from a view controller after it is visible:
 

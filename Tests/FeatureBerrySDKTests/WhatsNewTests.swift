@@ -18,6 +18,20 @@ import Testing
         #expect(!components.queryItems!.contains { $0.name == "apiKey" })
     }
 
+    #if canImport(UIKit) && canImport(ReplayKit)
+    @Suite @MainActor struct WhatsNewSessionTests {
+        @Test func sessionButtonRequiresMatchingReleaseConfiguration() {
+            let manager = FeatureBerrySessionManager()
+            #expect(!manager.isConfiguredForRelease(codeword: "v2"))
+            manager.configure(apiKey: "client-key", testType: .feature, codeword: "v2", checklistItems: [])
+            #expect(!manager.isConfiguredForRelease(codeword: "v2"))
+            manager.configure(apiKey: "client-key", testType: .release, codeword: "v2", checklistItems: [])
+            #expect(manager.isConfiguredForRelease(codeword: "v2"))
+            #expect(!manager.isConfiguredForRelease(codeword: "v3"))
+        }
+    }
+    #endif
+
     @Test func reviewsRequestUsesConfiguredAppAndHeader() throws {
         let request = try client.reviewsRequest()
         let components = try #require(request.url.flatMap {
