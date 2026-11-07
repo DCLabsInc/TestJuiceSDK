@@ -199,6 +199,20 @@ import UIKit
         #expect(!FeatureBerry.shouldCheckWhatsNew(currentVersion: "  ", lastVersion: nil))
     }
 
+    @Test func alwaysShowOverridesVersionChecks() {
+        #expect(FeatureBerry.shouldCheckWhatsNew(
+            currentVersion: "2.0", lastVersion: "2.0", alwaysShow: true))
+        #expect(FeatureBerry.shouldCheckWhatsNew(
+            currentVersion: nil, lastVersion: nil, alwaysShow: true))
+    }
+
+    @Test func readsAlwaysShowFromInfoDictionary() {
+        #expect(FeatureBerry.shouldAlwaysShowWhatsNew(from: ["ShowWhatsNewAlways": 1]))
+        #expect(!FeatureBerry.shouldAlwaysShowWhatsNew(from: ["ShowWhatsNewAlways": 0]))
+        #expect(!FeatureBerry.shouldAlwaysShowWhatsNew(from: [:]))
+        #expect(!FeatureBerry.shouldAlwaysShowWhatsNew(from: nil))
+    }
+
     @Test func bundleVersionIncludesMarketingAndBuildVersions() {
         #expect(FeatureBerry.whatsNewVersion(from: [
             "CFBundleShortVersionString": "2.0",

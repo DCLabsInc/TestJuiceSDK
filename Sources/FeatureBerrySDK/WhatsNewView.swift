@@ -12,13 +12,16 @@ public extension FeatureBerry {
     /// Configure feature flags first and call again when the app is ready if presentation fails.
     static func CheckWhatsNew(releaseCodeword: String) {
         guard !isPresentingWhatsNew else { return }
-        guard let version = whatsNewVersion(from: Bundle.main.infoDictionary) else {
+        let infoDictionary = Bundle.main.infoDictionary
+        let alwaysShow = shouldAlwaysShowWhatsNew(from: infoDictionary)
+        guard let version = whatsNewVersion(from: infoDictionary) ?? (alwaysShow ? "always" : nil) else {
             whatsNewLogger.error("Cannot check What's New: the app bundle has no version.")
             return
         }
         guard shouldCheckWhatsNew(
             currentVersion: version,
-            lastVersion: UserDefaults.standard.string(forKey: whatsNewPresentationKey)
+            lastVersion: UserDefaults.standard.string(forKey: whatsNewPresentationKey),
+            alwaysShow: alwaysShow
         ) else { return }
         guard let configured = client else {
             whatsNewLogger.error("Cannot check What's New: FeatureBerry is not configured.")

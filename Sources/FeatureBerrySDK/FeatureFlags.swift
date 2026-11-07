@@ -265,7 +265,14 @@ public enum FeatureBerry {
         return components.isEmpty ? nil : components.joined(separator: "+")
     }
 
-    static func shouldCheckWhatsNew(currentVersion: String?, lastVersion: String?) -> Bool {
+    static func shouldAlwaysShowWhatsNew(from infoDictionary: [String: Any]?) -> Bool {
+        (infoDictionary?["ShowWhatsNewAlways"] as? NSNumber)?.intValue == 1
+    }
+
+    static func shouldCheckWhatsNew(
+        currentVersion: String?, lastVersion: String?, alwaysShow: Bool = false
+    ) -> Bool {
+        if alwaysShow { return true }
         guard let currentVersion = currentVersion?.trimmingCharacters(in: .whitespacesAndNewlines),
               !currentVersion.isEmpty
         else { return false }

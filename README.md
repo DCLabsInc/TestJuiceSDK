@@ -255,6 +255,10 @@ struct WhatsNewHost: View {
 }
 ```
 
+Set `ShowWhatsNewAlways` to the integer `1` in the host app's Info.plist to show
+the What's New sheet every time `CheckWhatsNew(releaseCodeword:)` is called,
+regardless of the app bundle version.
+
 The first call and changes to either `CFBundleShortVersionString` or
 `CFBundleVersion` trigger a check. A successful empty release is recorded without
 showing a sheet; a nonempty release is recorded when the sheet appears. Network
