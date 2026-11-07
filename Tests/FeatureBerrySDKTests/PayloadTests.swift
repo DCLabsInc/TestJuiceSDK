@@ -7,6 +7,16 @@ import ReplayKit
 import UIKit
 
 @Suite @MainActor struct PrivacyMaskOverlayTests {
+    @Test func swiftUIMaskAnchorRegistersAndUnregisters() {
+        let manager = FeatureBerrySessionManager()
+        let view = SwiftUIPrivacyMaskView(manager: manager)
+
+        #expect(manager.registeredPrivacyMaskViews.contains { $0 === view })
+        #expect(!view.isUserInteractionEnabled)
+        view.unregister()
+        #expect(manager.registeredPrivacyMaskViews.isEmpty)
+    }
+
     @Test func maskFrameIsClippedToClippingAncestors() {
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 300, height: 200))
         let container = UIView(frame: CGRect(x: 20, y: 30, width: 100, height: 80))
