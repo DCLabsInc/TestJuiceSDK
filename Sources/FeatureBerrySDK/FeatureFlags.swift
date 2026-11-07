@@ -32,6 +32,12 @@ public struct FeatureBerryAppFeature: Decodable, Equatable, Identifiable, Sendab
     }
 }
 
+public struct FeatureBerryWhatsNew: Equatable, Sendable {
+    public let newFeatures: [FeatureBerryAppFeature]
+    public let testFeatures: [FeatureBerryAppFeature]
+    public let releaseHorizon: FeatureBerryHorizon?
+}
+
 struct FeatureBerryHorizonResponse: Decodable {
     let horizon: FeatureBerryHorizon
 
@@ -112,6 +118,34 @@ struct FeatureBerryFeatureClient: Sendable {
         return try JSONDecoder().decode(FeatureBerryAppFeaturesResponse.self, from: data).features
     }
 
+    func fetchWhatsNew(releaseCodeword: String) async throws -> FeatureBerryWhatsNew {
+        let features = try await fetchFeatures()
+        let codewords = Set(features.map(\.codeword))
+        let horizons = try await withThrowingTaskGroup(of: (String, FeatureBerryHorizon).self) { group in
+            for codeword in codewords {
+                group.addTask {
+                    (codeword, try await fetchHorizon(codeword: codeword))
+                }
+            }
+            var values: [String: FeatureBerryHorizon] = [:]
+            for try await (codeword, horizon) in group {
+                values[codeword] = horizon
+            }
+            return values
+        }
+        let releaseHorizon: FeatureBerryHorizon?
+        if let horizon = horizons[releaseCodeword] {
+            releaseHorizon = horizon
+        } else {
+            releaseHorizon = try? await fetchHorizon(codeword: releaseCodeword)
+        }
+
+        return FeatureBerryWhatsNew(
+            newFeatures: features.filter { horizons[$0.codeword] == .shipped },
+            testFeatures: features.filter { horizons[$0.codeword] == .testing },
+            releaseHorizon: releaseHorizon)
+    }
+
     private func makeRequest(path: String, query: [URLQueryItem]) throws -> URLRequest {
         guard baseURL.scheme?.lowercased() == "https" else {
             throw FeatureBerryError.invalidURL
@@ -149,11 +183,13 @@ public enum FeatureBerry {
 
     public static let horizonCacheDuration: TimeInterval = 7 * 60
     public static let featuresCacheDuration: TimeInterval = 12 * 60
+    private static let whatsNewVersionDefaultsKey = "com.featureberry.sdk.whatsNewVersion"
 
     static var client: FeatureBerryFeatureClient?
     private static var horizons: [String: CachedHorizon] = [:]
     private static var pendingHorizonRequests = Set<String>()
     private static var features: CachedFeatures?
+    private static var isCheckingWhatsNew = false
     /// Called on the main actor when the user's testing mode changes.
     public static var onUserIsTestingChanged: ((Bool) -> Void)?
 
@@ -198,6 +234,44 @@ public enum FeatureBerry {
         let values = try await client.fetchFeatures()
         features = CachedFeatures(value: values, fetchedAt: Date())
         return values
+    }
+
+    /// Fetches shipped and testing features once for each host-app bundle version.
+    /// Returns `nil` when this version has already been checked.
+    public static func CheckWhatsNew(releaseCodeword: String) async throws -> FeatureBerryWhatsNew? {
+        guard let version = whatsNewVersion(from: Bundle.main.infoDictionary),
+              shouldCheckWhatsNew(currentVersion: version, lastVersion: UserDefaults.standard.string(
+                forKey: whatsNewDefaultsKey)),
+              !isCheckingWhatsNew
+        else { return nil }
+        guard let client else { throw FeatureBerryError.featureFlagsNotConfigured }
+
+        isCheckingWhatsNew = true
+        defer { isCheckingWhatsNew = false }
+        let result = try await client.fetchWhatsNew(releaseCodeword: releaseCodeword)
+        UserDefaults.standard.set(version, forKey: whatsNewDefaultsKey)
+        return result
+    }
+
+    static func whatsNewVersion(from infoDictionary: [String: Any]?) -> String? {
+        guard let infoDictionary else { return nil }
+        let version = (infoDictionary["CFBundleShortVersionString"] as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let build = (infoDictionary["CFBundleVersion"] as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let components = [version, build].compactMap { $0 }.filter { !$0.isEmpty }
+        return components.isEmpty ? nil : components.joined(separator: "+")
+    }
+
+    static func shouldCheckWhatsNew(currentVersion: String?, lastVersion: String?) -> Bool {
+        guard let currentVersion = currentVersion?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !currentVersion.isEmpty
+        else { return false }
+        return currentVersion != lastVersion
+    }
+
+    private static var whatsNewDefaultsKey: String {
+        "\(whatsNewVersionDefaultsKey).\(Bundle.main.bundleIdentifier ?? "unknown")"
     }
 
     /// Fetches a feature's current Horizon status, using its seven-minute cache unless forced.

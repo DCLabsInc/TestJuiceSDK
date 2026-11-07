@@ -51,8 +51,6 @@ public final class FeatureBerrySessionManager: ObservableObject {
     private var limitTask: Task<Void, Never>?
     private var crashRecovery: CrashRecovery?
     private var launchObserver: NSObjectProtocol?
-    private var liveCheckObserver: NSObjectProtocol?
-    private var isShowingLivePrompt = false
     public init() {}
 
     // MARK: Configuration
@@ -69,54 +67,6 @@ public final class FeatureBerrySessionManager: ObservableObject {
             codeword: codeword,
             checklistItems: checklistItems)
         recoverFromCrashIfNeeded()
-        startLiveVersionChecks()
-    }
-
-    // MARK: Live version check
-
-    private func startLiveVersionChecks() {
-        checkLiveVersion()
-        guard liveCheckObserver == nil else { return }
-        liveCheckObserver = NotificationCenter.default.addObserver(
-            forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in self?.checkLiveVersion() }
-        }
-    }
-
-    private func checkLiveVersion() {
-        guard let configuration, !isShowingLivePrompt else { return }
-        Task { @MainActor in
-            guard let url = await configuration.client.fetchLiveAppURL(codeword: configuration.codeword) else { return }
-            self.presentLiveVersionAlert(url: url)
-        }
-    }
-
-    private func presentLiveVersionAlert(url: URL) {
-        guard !isShowingLivePrompt, !isActive else { return }
-        Task { @MainActor in
-            guard !self.isShowingLivePrompt, !self.isActive,
-                  let scene = await Self.readyScene(preferred: nil),
-                  let root = scene.windows.first(where: { !($0 is PassthroughWindow) && $0.isKeyWindow })?.rootViewController
-                    ?? scene.windows.first(where: { !($0 is PassthroughWindow) })?.rootViewController
-            else { return }
-            let presenter = Self.topMost(from: root)
-            if presenter is UIAlertController { return }
-            self.isShowingLivePrompt = true
-            let alert = UIAlertController(
-                title: "Version now live",
-                message: "This test has now gone live. Sync back to the live version now or wait for further upcoming test version",
-                preferredStyle: .alert)
-            Self.stylePopup(alert)
-            alert.addAction(UIAlertAction(title: "Wait", style: .cancel) { [weak self] _ in
-                self?.isShowingLivePrompt = false
-            })
-            alert.addAction(UIAlertAction(title: "Live version", style: .default) { [weak self] _ in
-                self?.isShowingLivePrompt = false
-                UIApplication.shared.open(url)
-            })
-            presenter.present(alert, animated: true)
-        }
     }
 
     func addPrivacyMaskView(_ view: UIView) {

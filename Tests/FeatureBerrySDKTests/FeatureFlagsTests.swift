@@ -186,3 +186,25 @@ import UIKit
         }
     }
 }
+
+@Suite @MainActor struct WhatsNewVersionTests {
+    @Test func checksWhenBundleVersionChanges() {
+        #expect(FeatureBerry.shouldCheckWhatsNew(currentVersion: "2.0", lastVersion: "1.9"))
+        #expect(FeatureBerry.shouldCheckWhatsNew(currentVersion: "2.0", lastVersion: nil))
+    }
+
+    @Test func skipsUnchangedOrMissingBundleVersions() {
+        #expect(!FeatureBerry.shouldCheckWhatsNew(currentVersion: "2.0", lastVersion: "2.0"))
+        #expect(!FeatureBerry.shouldCheckWhatsNew(currentVersion: nil, lastVersion: "2.0"))
+        #expect(!FeatureBerry.shouldCheckWhatsNew(currentVersion: "  ", lastVersion: nil))
+    }
+
+    @Test func bundleVersionIncludesMarketingAndBuildVersions() {
+        #expect(FeatureBerry.whatsNewVersion(from: [
+            "CFBundleShortVersionString": "2.0",
+            "CFBundleVersion": "42"
+        ]) == "2.0+42")
+        #expect(FeatureBerry.whatsNewVersion(from: ["CFBundleVersion": "42"]) == "42")
+        #expect(FeatureBerry.whatsNewVersion(from: [:]) == nil)
+    }
+}
